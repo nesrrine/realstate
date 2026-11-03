@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8f9fb;
+  --foreground: #0a0e1a;
+  --card: #ffffff;
+  --card-foreground: #0a0e1a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0e1a;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0a0e1a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e0e7ff;
+  --accent-foreground: #1e40af;
+  --destructive: #dc2626;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #2563eb;
+  --radius: 0.625rem;
+
+  --crm-sidebar: #0f172a;
+  --crm-sidebar-fg: #cbd5e1;
+  --crm-sidebar-muted: #94a3b8;
+  --crm-sidebar-accent: #3b82f6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter);
+}
+
+/* Sidebar CRM */
+.sidebar-crm {
+  background: var(--crm-sidebar);
+  color: var(--crm-sidebar-fg);
+}
+
+.sidebar-crm .nav-item {
+  color: var(--crm-sidebar-fg);
+  border-radius: var(--radius);
+  transition: background 0.15s ease;
+}
+
+.sidebar-crm .nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-crm .nav-item.active {
+  background: var(--crm-sidebar-accent);
+  color: #fff;
+}
+
+.sidebar-crm .nav-item .icon {
+  color: var(--crm-sidebar-muted);
+}
+
+.sidebar-crm .nav-item.active .icon,
+.sidebar-crm .nav-item:hover .icon {
+  color: inherit;
+}
+/* Cartes Leaflet : leurs calques (z-index 400 à 1000) restent confinés à la carte
+   et ne passent plus au-dessus des listes déroulantes, menus et fenêtres. */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 0;
+}
+
+/* ═══════════════════════ Animations du site vitrine ═══════════════════════
+   Apparition au défilement : <Reveal> (components/motion/reveal.tsx).
+   L'état caché n'existe que sous html.motion-ready (ajouté par un script avant
+   l'affichage) : sans JavaScript, le contenu reste visible. */
+.motion-ready [data-reveal] {
+  opacity: 0;
+  transition-property: opacity, transform, filter;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.motion-ready [data-reveal="up"] { transform: translateY(40px); }
+.motion-ready [data-reveal="down"] { transform: translateY(-40px); }
+.motion-ready [data-reveal="left"] { transform: translateX(-48px); }
+.motion-ready [data-reveal="right"] { transform: translateX(48px); }
+.motion-ready [data-reveal="zoom"] { transform: scale(0.92); }
+.motion-ready [data-reveal="blur"] { filter: blur(12px); transform: translateY(16px); }
+.motion-ready [data-reveal][data-shown] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(30px, -40px, 0) scale(1.08); }
+  66% { transform: translate3d(-24px, 20px, 0) scale(0.95); }
+}
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes gradient-pan {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes ken-burns {
+  from { transform: scale(1); }
+  to { transform: scale(1.12) translate(-1%, -1%); }
+}
+@keyframes shine {
+  from { transform: translateX(-120%) skewX(-20deg); }
+  to { transform: translateX(260%) skewX(-20deg); }
+}
+@keyframes ping-soft {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-fade-up { animation: fade-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-float { animation: float 18s ease-in-out infinite; }
+.animate-float-soft { animation: float-soft 6s ease-in-out infinite; }
+.animate-ken-burns { animation: ken-burns 20s ease-in-out infinite alternate; }
+.animate-ping-soft { animation: ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.animate-marquee { animation: marquee 40s linear infinite; }
+.animate-marquee:hover { animation-play-state: paused; }
+.text-gradient-animated {
+  background-image: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6, #60a5fa);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-pan 6s linear infinite;
+}
+
+/* Bouton avec reflet lumineux au survol */
+.btn-shine { position: relative; overflow: hidden; isolation: isolate; }
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-120%) skewX(-20deg);
+  z-index: -1;
+}
+.btn-shine:hover::after { animation: shine 0.9s ease; }
+
+/* Carte qui se soulève au survol */
+.card-lift { transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease; }
+.card-lift:hover { transform: translateY(-8px); box-shadow: 0 24px 48px -16px rgba(15, 23, 42, 0.25); }
+
+/* Respect du réglage « réduire les animations » du téléphone / ordinateur */
+@media (prefers-reduced-motion: reduce) {
+  .motion-ready [data-reveal] { opacity: 1; transform: none; filter: none; transition: none; }
+  .animate-fade-up, .animate-float, .animate-float-soft, .animate-ken-burns,
+  .animate-ping-soft, .animate-marquee, .text-gradient-animated { animation: none; }
+  .card-lift:hover { transform: none; }
+}

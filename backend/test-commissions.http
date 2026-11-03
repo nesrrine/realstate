@@ -1,0 +1,76 @@
+# ============================================================================
+# Test API - Transactions & Commissions
+# ============================================================================
+
+@baseUrl = http://localhost:3001/api
+@token = YOUR_JWT_TOKEN_HERE
+
+### COMMISSIONS - Configuration des taux (2 % par défaut)
+GET {{baseUrl}}/commissions/config
+Authorization: Bearer {{token}}
+
+### COMMISSIONS - Modifier la configuration (ADMIN/MANAGER)
+PUT {{baseUrl}}/commissions/config
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "commissionRate": 0.02,
+  "agentShareRate": 0
+}
+
+### COMMISSIONS - Preview : 250 000 DT × 2 % → 5 000 DT (100 % agence si agentShareRate=0)
+GET {{baseUrl}}/commissions/calculate-preview?amount=250000&commissionRate=0.02&agentShareRate=0
+Authorization: Bearer {{token}}
+
+### TRANSACTIONS - Créer (commission auto-calculée)
+POST {{baseUrl}}/transactions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "propertyId": "clx123abc",
+  "clientId": "clx456def",
+  "ownerId": "clx789ghi",
+  "agentId": "clx012jkl",
+  "transactionType": "SALE",
+  "amount": 250000,
+  "date": "2026-10-12T10:00:00Z",
+  "status": "COMPLETED",
+  "createCommission": true,
+  "notes": "Vente appartement 3 pièces"
+}
+
+### COMMISSIONS - Liste
+GET {{baseUrl}}/commissions?page=1&limit=20
+Authorization: Bearer {{token}}
+
+### COMMISSIONS - Filtre statut paiement
+GET {{baseUrl}}/commissions?paymentStatus=PENDING
+Authorization: Bearer {{token}}
+
+### COMMISSIONS - Stats
+GET {{baseUrl}}/commissions/stats
+Authorization: Bearer {{token}}
+
+### COMMISSIONS - Créer manuellement (montants calculés côté serveur)
+POST {{baseUrl}}/commissions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "transactionId": "clxTRANSACTION_ID",
+  "commissionRate": 0.02,
+  "agentShareRate": 0.5,
+  "notes": "Commission manuelle"
+}
+
+### COMMISSIONS - Marquer comme payée
+PUT {{baseUrl}}/commissions/clxCOMMISSION_ID
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "paymentStatus": "PAID",
+  "paidAt": "2026-10-12T14:30:00Z"
+}

@@ -1,0 +1,43 @@
+# Render (gratuit) : API NestJS. Dashboard Render → New → Blueprint → ce dépôt GitHub.
+# Les valeurs « sync: false » sont demandées par Render à la création (à coller vous-même).
+services:
+  - type: web
+    name: immo-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    # --include=dev : la CLI Nest et Prisma (devDependencies) servent au build et aux migrations
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node dist/main
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Neon : chaîne de connexion DIRECTE (sans « -pooler »), avec ?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # Adresse du site Vercel, ex. https://immo-expert.vercel.app (autorise le navigateur à appeler l'API)
+      - key: FRONTEND_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FILES_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      # Disque Render effacé à chaque redémarrage : photos et documents sur Cloudinary
+      - key: STORAGE_DRIVER
+        value: cloudinary
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: real-estate
+      - key: AGENCY_UTC_OFFSET
+        value: "+01:00"

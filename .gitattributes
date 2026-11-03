@@ -1,0 +1,7 @@
+# Fins de ligne normalisées (LF) dans le dépôt
+* text=auto
+# Exécutés sous Linux (Render, Docker) : toujours LF
+*.sh text eol=lf
+Dockerfile text eol=lf
+# Scripts Windows
+*.ps1 text eol=crlf

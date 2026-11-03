@@ -1,0 +1,74 @@
+# ============================================================================
+# Test API - Dashboard
+# ============================================================================
+# Utiliser avec l'extension REST Client de VS Code
+# ou importer dans Postman
+
+@baseUrl = http://localhost:3001/api
+@token = YOUR_JWT_TOKEN_HERE
+
+### ============================================================================
+### DASHBOARD SUMMARY - Vue d'ensemble complète
+### ============================================================================
+GET {{baseUrl}}/dashboard/summary
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### DASHBOARD SUMMARY - Avec filtres de date
+### ============================================================================
+GET {{baseUrl}}/dashboard/summary?startDate=2026-01-01&endDate=2026-12-31
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### DASHBOARD SUMMARY - Pour un agent spécifique
+### ============================================================================
+GET {{baseUrl}}/dashboard/summary?agentId=clx012jkl
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### SALES STATISTICS - Ventes et locations
+### ============================================================================
+GET {{baseUrl}}/dashboard/sales
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### SALES STATISTICS - Avec période
+### ============================================================================
+GET {{baseUrl}}/dashboard/sales?startDate=2026-01-01&endDate=2026-12-31
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### SALES STATISTICS - Pour un agent
+### ============================================================================
+GET {{baseUrl}}/dashboard/sales?agentId=clx012jkl
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### LEADS STATISTICS - Statistiques des leads
+### ============================================================================
+GET {{baseUrl}}/dashboard/leads
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### LEADS STATISTICS - Avec filtres
+### ============================================================================
+GET {{baseUrl}}/dashboard/leads?startDate=2026-01-01&endDate=2026-12-31&agentId=clx012jkl
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### AGENTS PERFORMANCE - Performance de tous les agents (ADMIN/MANAGER only)
+### ============================================================================
+GET {{baseUrl}}/dashboard/agents
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### AGENTS PERFORMANCE - Avec filtres de date
+### ============================================================================
+GET {{baseUrl}}/dashboard/agents?startDate=2026-01-01&endDate=2026-12-31
+Authorization: Bearer {{token}}
+
+### ============================================================================
+### AGENTS PERFORMANCE - Pour un agent spécifique
+### ============================================================================
+GET {{baseUrl}}/dashboard/agents?agentId=clx012jkl
+Authorization: Bearer {{token}}

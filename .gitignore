@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Prisma : les migrations DOIVENT être versionnées (prisma migrate deploy en production)
+
+# Fichiers envoyés (photos, documents) : sauvegardés à part, jamais dans git
+backend/uploads/
+backups/
+
+# Docker volumes
+postgres_data/
+
+# TypeScript
+*.tsbuildinfo
+
+# Import des dossiers vendeurs : contient des données personnelles (noms, téléphones)
+backend/scripts/import-dossiers/sortie/
+backend/scripts/import-portail/sortie/
+*.xlsx
+*.csv
+
+# Outils et fichiers de travail locaux (pas utiles au site)
+.kilo/
+.claude/settings.local.json
+/patch_leads.py
+/run_migrate.py
+/unlock_pg.py
+/write_schema.py
+backend/check-*.ts
+backend/fix-references.ts
+backend/*-files.txt
+backend/structure-*.txt
+frontend/*-files.txt
+frontend/test.jpg
+*.dump
