@@ -431,7 +431,9 @@ model PropertyDocument {
   originalName String?
   category     String? // e.g. "diagnostic", "plan", "contrat", "autre"
   createdAt    DateTime @default(now())
-
+  cloudinaryPublicId       String? @map("cloudinary_public_id")
+  cloudinaryResourceType   String? @map("cloudinary_resource_type")
+  cloudinaryDeliveryType   String? @default("private") @map("cloudinary_delivery_type")
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])

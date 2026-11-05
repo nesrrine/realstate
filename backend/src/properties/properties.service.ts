@@ -505,6 +505,40 @@ export class PropertiesService {
     return { message: `Document ${documentId} deleted` };
   }
 
+  // ── DOWNLOAD SINGLE DOCUMENT ──────────────────────────────────────────
+  async downloadDocument(propertyId: string, documentId: string, user: any): Promise<{ stream: Buffer; filename: string; contentType: string }> {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true, agentId: true, agent: { select: { userId: true } } },
+    });
+    if (!property) throw new NotFoundException(`Property ${propertyId} not found`);
+    if (user.role === Role.AGENT && property.agent.userId !== user.id) {
+      throw new ForbiddenException("You can only download documents from your own properties");
+    }
+
+    const doc = await this.prisma.propertyDocument.findUnique({
+      where: { id: documentId },
+    });
+    if (!doc) throw new NotFoundException(`Document ${documentId} not found`);
+    if (doc.propertyId !== propertyId) {
+      throw new NotFoundException(`Document ${documentId} not found for property ${propertyId}`);
+    }
+
+    try {
+      // Fetch from storage (Cloudinary or local)
+      const buffer = await this.storage.read(doc.storageKey);
+      
+      return {
+        stream: buffer,
+        filename: doc.originalName || `document-${doc.id}`,
+        contentType: doc.mimeType || 'application/octet-stream',
+      };
+    } catch (error) {
+      this.logger.error(`Error downloading document ${documentId}: ${error.message}`);
+      throw new NotFoundException(`Failed to download document ${documentId}`);
+    }
+  }
+
   // ── DOWNLOAD DOCUMENTS ZIP ──────────────────────────────────────────
   async downloadDocumentsZip(propertyId: string, user: any): Promise<Buffer> {
     const property = await this.prisma.property.findUnique({
@@ -524,10 +558,9 @@ export class PropertiesService {
       throw new NotFoundException(`No documents found for property ${propertyId}`);
     }
 
-    const { ZipArchive } = await import('archiver');
-
+    const archiver = require('archiver');
     return new Promise((resolve, reject) => {
-      const archive = new ZipArchive({ zlib: { level: 9 } });
+      const archive = archiver('zip', { zlib: { level: 9 } });
       const chunks: Buffer[] = [];
 
       archive.on('data', (chunk: Buffer) => chunks.push(chunk));

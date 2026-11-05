@@ -155,6 +155,36 @@ export class PropertiesController {
     return this.propertiesService.removeDocument(id, documentId, user);
   }
 
+  // ── GET /properties/:id/documents/:documentId/download ───────────────
+  @Get(":id/documents/:documentId/download")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
+  @ApiOperation({ summary: "Download a single property document" })
+  @ApiParam({ name: "id", description: "Property CUID" })
+  @ApiParam({ name: "documentId", description: "Document CUID" })
+  @ApiResponse({ status: 200, description: "Document file stream" })
+  @ApiResponse({ status: 403, description: "Forbidden" })
+  @ApiResponse({ status: 404, description: "Document not found" })
+  async downloadDocument(
+    @Param("id") id: string,
+    @Param("documentId") documentId: string,
+    @CurrentUser() user: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { stream, filename, contentType } = await this.propertiesService.downloadDocument(
+      id,
+      documentId,
+      user,
+    );
+
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+
+    return new StreamableFile(stream);
+  }
+
   // ── GET /properties/:id/documents/download-zip ──────────────────────
   @Get(":id/documents/download-zip")
   @UseGuards(RolesGuard)
