@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Clock } from 'lucide-react';
-import { publicService } from '@/services/public.service';
+import { publicService, Property } from '@/services/public.service';
 import { formatPrice, formatArea, getCoverImage, TRANSACTION_LABELS } from '@/lib/public-constants';
 import { Reveal } from '@/components/motion/reveal';
 
@@ -54,7 +54,7 @@ export async function LatestSection() {
   );
 }
 
-function LatestCard({ property }: { property: any }) {
+function LatestCard({ property }: { property: Property }) {
   const cover = getCoverImage(property.images);
 
   return (

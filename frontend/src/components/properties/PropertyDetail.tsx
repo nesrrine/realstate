@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { shareLink } from '@/lib/share';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, MapPin, Home, LandPlot, Briefcase, Calendar, Phone, Mail, Share2, Heart, ArrowLeft, Expand, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Home, LandPlot, Briefcase, Phone, Mail, Share2, Heart, Expand } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,12 +59,6 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
 
   const handleImageSelect = (index: number) => {
     setCurrentImageIndex(index);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowLeft') goToPrev();
-    if (e.key === 'ArrowRight') goToNext();
-    if (e.key === 'Escape') setShowGallery(false);
   };
 
   return (
@@ -326,8 +320,8 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
               <Separator />
 
               <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50/60 p-6 transition-shadow duration-500 hover:shadow-lg">
-                <h2 className="text-xl font-bold text-slate-900">Contactez l'agent</h2>
-                <p className="mt-2 text-slate-600">
+                <h2 className="text-xl font-bold text-slate-900">Contactez l&apos;agent</h2>
+              <p className="mt-2 text-slate-600">
                   {property.fieldAgent?.user ? fullName(property.fieldAgent.user) : 'Notre équipe'}
                   {agencyPhone && ` · ${agencyPhone}`}
                 </p>
@@ -422,7 +416,7 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
                       </div>
                     ))}
                     <div className="flex justify-between pt-4 border-t border-slate-200">
-                      <dt className="text-slate-600">Date d'ajout</dt>
+                      <dt className="text-slate-600">Date d&apos;ajout</dt>
                       <dd className="font-medium text-slate-900">{new Date(property.createdAt).toLocaleDateString('fr-FR')}</dd>
                     </div>
                   </dl>
@@ -433,7 +427,7 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
                     <Button asChild className="w-full bg-slate-900 hover:bg-slate-800 py-3">
                       <Link href={`/contact?property=${property.id}`}>
                         <Phone className="mr-2 h-4 w-4" />
-                        Contacter l'agence
+                        Contacter l&apos;agence
                       </Link>
                     </Button>
                     <Button variant="outline" asChild className="w-full py-3">

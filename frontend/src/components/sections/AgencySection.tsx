@@ -46,18 +46,18 @@ export function AgencySection() {
             </h2>
             <p className="mt-4 text-base leading-relaxed text-slate-300">
               Fondée il y a plus de 15 ans, Le Portail Immobilier est devenu une référence sur le marché
-              immobilier. Notre équipe d'experts vous accompagne dans tous vos projets : achat,
+              immobilier. Notre équipe d&apos;experts vous accompagne dans tous vos projets : achat,
               vente, location et investissement.
             </p>
             <p className="mt-3 text-base leading-relaxed text-slate-300">
-              Nous mettons notre connaissance du marché, notre réseau d'experts et notre sens du
+              Nous mettons notre connaissance du marché, notre réseau d&apos;experts et notre sens du
               relationnel au service de votre projet pour obtenir les meilleurs résultats.
             </p>
 
             <div className="mt-8 grid grid-cols-2 gap-6">
               {[
                 { value: '500+', label: 'Biens référencés' },
-                { value: '15+', label: "Ans d'expérience" },
+                { value: '15+', label: "Ans d&apos;expérience" },
                 { value: '20+', label: 'Experts dédiés' },
                 { value: '98%', label: 'Clients satisfaits' },
               ].map((stat) => (

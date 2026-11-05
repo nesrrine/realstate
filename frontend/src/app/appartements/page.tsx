@@ -20,7 +20,7 @@ export default function AppartementsPage() {
             Appartements
           </h1>
           <p className="mt-2 text-slate-600">
-            Découvrez notre sélection d'appartements à vendre et à louer.
+            Découvrez notre sélection d&apos;appartements à vendre et à louer.
           </p>
         </div>
 

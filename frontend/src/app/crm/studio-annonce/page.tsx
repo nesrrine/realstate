@@ -33,6 +33,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+interface StudioPropertyMetadata {
+  title?: string;
+  banner?: string;
+  type?: string;
+  location?: string;
+  phone?: string;
+  slogan?: string;
+  imageIndex?: number;
+}
+
+type StudioProperty = Property & {
+  images?: Array<{ id?: string; url: string }>;
+  agent?: { user?: { phone?: string } };
+};
+
 function StudioAnnonceContent() {
   const searchParams = useSearchParams();
 
@@ -40,7 +55,7 @@ function StudioAnnonceContent() {
   const [total, setTotal] = useState(0);
   const [props, setProps] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState(searchParams.get('propertyId') ?? '');
-  const [selected, setSelected] = useState<Property | null>(null);
+  const [selected, setSelected] = useState<StudioProperty | null>(null);
   const [template, setTemplate] = useState<Template>('BLUE_PREMIUM');
 
   const [editTitle, setEditTitle] = useState('');
@@ -62,10 +77,10 @@ function StudioAnnonceContent() {
   // Conteneur de l'aperçu (pour calculer l'échelle)
   const previewRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
-  const pendingEditsRef = useRef<any>(null);
+  const pendingEditsRef = useRef<StudioPropertyMetadata | null>(null);
 
   // Applique les modifications enregistrées d'une création (stockées dans metadata)
-  const applyEdits = (m: any) => {
+  const applyEdits = (m: StudioPropertyMetadata | null | undefined) => {
     if (!m) return;
     if (m.title !== undefined) setEditTitle(m.title);
     if (m.banner !== undefined) setEditBanner(m.banner);
@@ -103,7 +118,7 @@ function StudioAnnonceContent() {
     refresh();
     propertiesService
       .getAll({ limit: 100 })
-      .then((r: any) => setProps(r.data ?? r))
+      .then((r) => setProps(Array.isArray(r) ? r : (r.data ?? [])))
       .catch(() => {});
   }, [refresh]);
 
@@ -114,13 +129,13 @@ function StudioAnnonceContent() {
     }
     propertiesService
       .getById(propertyId)
-      .then((p: any) => {
-        setSelected(p);
+      .then((p) => {
+        setSelected(p as StudioProperty);
         setEditTitle(p.title ?? '');
         setEditBanner('À VENDRE');
         setEditType(p.type ?? 'TERRAIN');
         setEditLocation(p.city ?? '');
-        setEditPhone(p.agent?.user?.phone ?? '');
+        setEditPhone((p.agent?.user as { phone?: string } | undefined)?.phone ?? '');
         setEditSlogan('Terrain idéal pour votre projet');
         setImageIndex(0);
         if (pendingEditsRef.current) {
@@ -153,8 +168,8 @@ function StudioAnnonceContent() {
           phone: editPhone,
           slogan: editSlogan,
           imageIndex,
-        },
-      } as any);
+        } as Record<string, unknown>,
+      } as StudioCreation);
       await refresh();
       flash('ok', 'Création enregistrée.');
     } catch {
@@ -196,8 +211,10 @@ function StudioAnnonceContent() {
         await navigator.clipboard.writeText(window.location.href);
         flash('ok', 'Partage indisponible : lien copié.');
       }
-    } catch (e: any) {
-      if (e?.name !== 'AbortError') flash('error', 'Échec du partage.');
+    } catch (e) {
+      if (e && typeof e === 'object' && 'name' in e && e.name !== 'AbortError') {
+        flash('error', 'Échec du partage.');
+      }
     } finally {
       setExporting(null);
     }
@@ -205,17 +222,18 @@ function StudioAnnonceContent() {
 
   // Charge une création dans l'éditeur (bien + modèle + modifications enregistrées)
   const loadCreation = (c: StudioCreation): boolean => {
-    const pid = (c as any).propertyId ?? (c as any).property?.id;
+    const cWithProperty = c as StudioCreation & { propertyId?: string; property?: { id?: string } };
+    const pid = cWithProperty.propertyId ?? cWithProperty.property?.id;
     if (!pid) {
       flash('error', 'Bien introuvable pour cette création.');
       return false;
     }
-    const m = (c as any).metadata;
+    const m = (c as StudioCreation & { metadata?: StudioPropertyMetadata }).metadata;
     setTemplate(c.template as Template);
     if (pid === propertyId && selected) {
       applyEdits(m); // même bien déjà affiché : on applique directement
     } else {
-      pendingEditsRef.current = m;
+      pendingEditsRef.current = m ?? null;
       setPropertyId(pid);
     }
     return true;
@@ -245,7 +263,11 @@ function StudioAnnonceContent() {
     if (!window.confirm(`Supprimer « ${c.title} » ?`)) return;
     setDeletingId(c.id);
     try {
-      const svc: any = studioService;
+      type StudioServiceWithDelete = typeof studioService & {
+        remove?: (id: string) => Promise<void>;
+        delete?: (id: string) => Promise<void>;
+      };
+      const svc = studioService as StudioServiceWithDelete;
       const del = svc.remove ?? svc.delete;
       if (!del) throw new Error('studioService.remove manquant');
       await del.call(studioService, c.id);
@@ -436,7 +458,11 @@ function StudioAnnonceContent() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {items.map((c) => {
-                  const prop: any = (c as any).property;
+                  const cWithProperty = c as StudioCreation & {
+                    property?: { images?: Array<{ url: string }>; city?: string };
+                    createdAt?: string;
+                  };
+                  const prop = cWithProperty.property;
                   const thumb = prop?.images?.[0]?.url;
                   return (
                     <tr key={c.id} className="transition-colors hover:bg-blue-50/40">
@@ -469,7 +495,7 @@ function StudioAnnonceContent() {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-gray-500">
-                        {(c as any).createdAt ? new Date((c as any).createdAt).toLocaleDateString('fr-FR') : '—'}
+                        {cWithProperty.createdAt ? new Date(cWithProperty.createdAt).toLocaleDateString('fr-FR') : '—'}
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1.5">

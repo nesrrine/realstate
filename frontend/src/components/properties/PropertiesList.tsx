@@ -1,10 +1,10 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { useState } from 'react';
 import { Reveal } from '@/components/motion/reveal';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { MapPin, Home, LandPlot, Briefcase, Calendar, Loader2, Grid3x3, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Home, LandPlot, Briefcase, Loader2, Grid3x3, List, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';

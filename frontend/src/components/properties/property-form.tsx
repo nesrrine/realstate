@@ -1219,7 +1219,7 @@ export function PropertyForm({ mode, property }: Props) {
             <CardHeader>
               <CardTitle>Note interne</CardTitle>
               <CardDescription>
-                Commentaires réservés à l'agence, non visibles sur le site public
+                Commentaires réservés à l&apos;agence, non visibles sur le site public
               </CardDescription>
             </CardHeader>
             <CardContent>

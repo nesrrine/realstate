@@ -6,9 +6,7 @@ import {
   Users,
   Award,
   TrendingUp,
-  MapPin,
   Phone,
-  Mail,
   Shield,
   CheckCircle2,
   FileText,
@@ -101,11 +99,11 @@ export default function AgencePage() {
               </h1>
               <p className="mt-6 text-lg leading-relaxed text-slate-300">
                 Fondée il y a plus de 15 ans, Le Portail Immobilier est devenu une référence sur le marché
-                immobilier. Notre équipe d'experts vous accompagne dans tous vos projets : achat,
+                immobilier. Notre équipe d&apos;experts vous accompagne dans tous vos projets : achat,
                 vente, location et investissement.
               </p>
               <p className="mt-4 text-lg leading-relaxed text-slate-300">
-                Nous mettons notre connaissance du marché, notre réseau d'experts et notre sens du
+                Nous mettons notre connaissance du marché, notre réseau d&apos;experts et notre sens du
                 relationnel au service de votre projet pour obtenir les meilleurs résultats.
               </p>
 
@@ -188,7 +186,7 @@ export default function AgencePage() {
               Une gamme complète de services
             </h2>
             <p className="mt-4 text-slate-600">
-              De l'estimation à la signature, nous vous accompagnons à chaque étape.
+              De l&apos;estimation à la signature, nous vous accompagnons à chaque étape.
             </p>
           </Reveal>
 
@@ -218,7 +216,7 @@ export default function AgencePage() {
               },
               {
                 icon: Briefcase,
-                title: "Immobilier d'entreprise",
+                title: "Immobilier d&apos;entreprise",
                 desc: 'Locaux commerciaux, bureaux, entrepôts pour votre activité.',
                 features: [
                   'Emplacement premium',
@@ -293,7 +291,7 @@ export default function AgencePage() {
           <Reveal variant="zoom" className="mx-auto max-w-3xl text-center">
             <h2 className="text-3xl font-bold sm:text-4xl">Prêt à concrétiser votre projet ?</h2>
             <p className="mt-4 text-lg text-slate-300">
-              Contactez-nous dès aujourd'hui pour une estimation gratuite ou pour discuter de votre
+              Contactez-nous dès aujourd&apos;hui pour une estimation gratuite ou pour discuter de votre
               projet immobilier.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">

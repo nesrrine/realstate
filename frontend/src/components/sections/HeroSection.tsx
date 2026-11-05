@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Building2, Home, LandPlot, Briefcase, TrendingUp } from 'lucide-react';
+import { ArrowRight, TrendingUp, Home, LandPlot, Briefcase } from 'lucide-react';
 import { publicService } from '@/services/public.service';
 import { formatPrice, getCoverImage, TYPE_LABELS, TRANSACTION_LABELS } from '@/lib/public-constants';
 import { CountUp } from '@/components/motion/count-up';
@@ -63,7 +63,7 @@ export async function HeroSection() {
               className="animate-fade-up mt-6 text-lg leading-relaxed text-slate-300"
               style={{ animationDelay: '240ms' }}
             >
-              Découvrez notre portefeuille exclusif d'appartements, villas, terrains et locaux
+              Découvrez notre portefeuille exclusif d&apos;appartements, villas, terrains et locaux
               commerciaux. Accompagnement personnalisé de A à Z pour chaque projet.
             </p>
             <div className="animate-fade-up mt-8 flex flex-wrap gap-4" style={{ animationDelay: '360ms' }}>

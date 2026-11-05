@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { ArrowRight, Star, MapPin, Home, LandPlot, Briefcase } from 'lucide-react';
-import { publicService } from '@/services/public.service';
+import { ArrowRight, MapPin } from 'lucide-react';
+import { publicService, Property } from '@/services/public.service';
 import { formatPrice, formatArea, getCoverImage, TYPE_LABELS, TRANSACTION_LABELS } from '@/lib/public-constants';
 import { Reveal } from '@/components/motion/reveal';
 
@@ -58,7 +58,7 @@ export async function FeaturedSection() {
   );
 }
 
-function PropertyCard({ property }: { property: any }) {
+function PropertyCard({ property }: { property: Property }) {
   const cover = getCoverImage(property.images);
 
   return (

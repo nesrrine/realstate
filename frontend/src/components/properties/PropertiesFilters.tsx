@@ -2,13 +2,13 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { X, SlidersHorizontal, ChevronDown, ChevronUp, Building2, Home, LandPlot, Briefcase } from 'lucide-react';
+import { X, SlidersHorizontal, Building2, Home } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { publicService, PropertyFilters } from '@/services/public.service';
+import { PropertyFilters } from '@/services/public.service';
 import { useDebounce } from '@/hooks/use-debounce';
 import { GOVERNORATE_LIST, getDelegations } from '@/lib/tunisia-locations';
 
@@ -46,7 +46,6 @@ export function PropertiesFilters({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [expanded, setExpanded] = useState(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000000]);
   const [surfaceRange, setSurfaceRange] = useState<[number, number]>([0, 500]);
 
@@ -101,7 +100,7 @@ export function PropertiesFilters({
     });
   };
 
-  const updateFilter = (key: keyof PropertyFilters, value: any) => {
+  const updateFilter = (key: keyof PropertyFilters, value: string | number | undefined) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   };
 
@@ -135,7 +134,7 @@ export function PropertiesFilters({
 
         <div>
           <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Type d'opération
+            Type d&apos;opération
           </Label>
           <div className="mt-2 flex gap-2">
             {TRANSACTION_TYPES.map((t) => {

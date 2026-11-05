@@ -114,9 +114,38 @@ export default function BonDeVisitePage() {
   }
 
   /* ---------------- Données ---------------- */
-  const v: any = visit;
-  const client: any = v.client ?? {};
-  const properties: any[] = v.properties ?? [];
+  const v = visit as {
+    id: string;
+    scheduledAt?: string | Date;
+    createdAt?: string | Date;
+    client?: {
+      firstName?: string;
+      lastName?: string;
+      cinOrPassport?: string;
+      cin?: string;
+      passport?: string;
+      address?: string;
+      city?: string;
+      zipCode?: string;
+      phone?: string;
+    };
+    properties?: Array<{
+      property?: {
+        title?: string;
+        city?: string;
+        reference?: string;
+        ref?: string;
+        code?: string;
+      };
+      title?: string;
+      city?: string;
+      reference?: string;
+      ref?: string;
+      code?: string;
+    }>;
+  };
+  const client = v.client ?? {};
+  const properties = v.properties ?? [];
 
   const fullName = [clean(client.firstName), clean(client.lastName)].filter(Boolean).join(" ");
   // ⚠️ Adapter le nom du champ CIN/passeport à votre modèle Client
@@ -124,7 +153,11 @@ export default function BonDeVisitePage() {
   const address = [clean(client.address), clean(client.city), clean(client.zipCode)].filter(Boolean).join(", ");
   const phone = clean(client.phone);
 
-  const docDate = new Date(v.scheduledAt ?? v.createdAt ?? Date.now());
+  const docDate = new Date(
+    (typeof v.scheduledAt === 'string' || typeof v.scheduledAt === 'number' ? v.scheduledAt : null) ??
+    (typeof v.createdAt === 'string' || typeof v.createdAt === 'number' ? v.createdAt : null) ??
+    Date.now()
+  );
   const dateStr = formatLongDate(docDate, lang);
 
   // Biens : "Titre — Ville — Réf"
@@ -217,8 +250,8 @@ export default function BonDeVisitePage() {
             </>
           ) : (
             <>
-              Je m'engage à traiter avec la société <b>{AGENCY.name}</b> par l'intermédiaire de son agence{" "}
-              <b>{AGENCY.branch}</b> située à <b>{AGENCY.address}</b>, dans le but de négocier l'achat du ou des
+              Je m&apos;engage à traiter avec la société <b>{AGENCY.name}</b> par l&apos;intermédiaire de son agence{" "}
+              <b>{AGENCY.branch}</b> située à <b>{AGENCY.address}</b>, dans le but de négocier l&apos;achat du ou des
               biens immobiliers mentionnés ci-dessous, après visite sur place.
             </>
           )}
@@ -227,7 +260,7 @@ export default function BonDeVisitePage() {
         <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
           {rtl
             ? "كما أصرح بأني سأقوم بزيارة ميدانية للعقار المذكور الذي تحت تصرف الوكالة قصد شراءه:"
-            : "Je déclare également effectuer une visite sur place du bien mentionné, placé sous la responsabilité de l'agence, en vue de son achat :"}
+            : "Je déclare également effectuer une visite sur place du bien mentionné, placé sous la responsabilité de l&apos;agence, en vue de son achat :"}
         </p>
 
         {/* Bien(s) */}
@@ -249,8 +282,8 @@ export default function BonDeVisitePage() {
             </>
           ) : (
             <>
-              Je m'engage à ne pas tenter de traiter directement ou indirectement avec le propriétaire pendant une
-              durée de <b>24 mois</b> à compter de ce jour, faute de quoi j'aurais violé la commission de l'agence
+              Je m&apos;engage à ne pas tenter de traiter directement ou indirectement avec le propriétaire pendant une
+              durée de <b>24 mois</b> à compter de ce jour, faute de quoi j&apos;aurais violé la commission de l&apos;agence
               fixée à <b>2 %</b> du montant total inscrit dans le contrat définitif (promesse de vente ou acte de
               vente définitif).
             </>

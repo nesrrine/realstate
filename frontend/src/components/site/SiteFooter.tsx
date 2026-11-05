@@ -46,9 +46,9 @@ export function SiteFooter() {
                 </span>
               </div>
             </Link>
-            <p className="mt-4 text-sm leading-relaxed text-slate-400">
-              Votre partenaire de confiance pour l'achat, la vente et la location
-              d'immeubles, d'appartements, de villas et de terrains.
+              <p className="mt-4 text-sm leading-relaxed text-slate-400">
+              Votre partenaire de confiance pour l&apos;achat, la vente et la location
+              d&apos;immeubles, d&apos;appartements, de villas et de terrains.
             </p>
             <div className="mt-5 flex gap-3">
               {[

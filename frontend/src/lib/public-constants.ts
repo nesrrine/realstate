@@ -40,7 +40,7 @@ export const formatArea = (surface: number | string | null | undefined): string 
 };
 
 export function getCoverImage(images: { url: string; isCover?: boolean }[] | undefined): string {
-  if (!images || images.length === 0) return '/images/placeholder-property.jpg';
+  if (!images || images.length === 0) return '/images/placeholder-property.svg';
   const cover = images.find((img) => img.isCover);
   return (cover || images[0]).url;
 }

@@ -1,6 +1,8 @@
 import React from 'react';
 
 export interface BluePremiumPosterProps {
+  // title conservé pour compatibilité mais non utilisé dans le rendu
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   title?: string;
   bannerText?: string;
   propertyType?: string;
@@ -19,7 +21,6 @@ export interface BluePremiumPosterProps {
 }
 
 const BluePremiumPoster: React.FC<BluePremiumPosterProps> = ({
-  title = 'TERRAIN',
   bannerText = 'À VENDRE',
   propertyType = 'TERRAIN',
   template = 'BLUE_PREMIUM',

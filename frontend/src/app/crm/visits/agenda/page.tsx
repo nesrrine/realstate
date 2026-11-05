@@ -83,6 +83,7 @@ export default function AgendaPage() {
   });
 
   const visits: Visit[] = data?.data ?? [];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const byDay = useMemo(() => {
     const map = new Map<string, Visit[]>();
     for (const v of visits) {
