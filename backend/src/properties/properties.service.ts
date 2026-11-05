@@ -104,6 +104,10 @@ const PUBLIC_PROPERTY_SELECT = {
 };
 const isPublicRequest = (user: any) => user?.role === "PUBLIC";
 
+// Les variables de catch sont de type `unknown` (strict) : on extrait message/stack en sécurité
+const getErrorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+const getErrorStack = (e: unknown): string | undefined => (e instanceof Error ? e.stack : undefined);
+
 // Erreurs Prisma -> erreurs HTTP lisibles
 const handlePrismaError = (e: unknown): never => {
   if (e instanceof Prisma.PrismaClientKnownRequestError) {
@@ -530,9 +534,9 @@ export class PropertiesService {
     try {
       // Fetch from storage (Cloudinary or local)
       const buffer = await this.storage.read(doc.storageKey);
-      
+
       this.logger.log(`Successfully retrieved ${buffer.length} bytes for document ${documentId}`);
-      
+
       return {
         stream: buffer,
         filename: doc.originalName || `document-${doc.id}`,
@@ -540,14 +544,30 @@ export class PropertiesService {
       };
     } catch (error) {
       this.logger.error(`Error downloading document ${documentId} from storage:`, {
-        error: error.message,
-        stack: error.stack,
+        error: getErrorMessage(error),
+        stack: getErrorStack(error),
         storageKey: doc.storageKey,
         documentId: doc.id,
         propertyId,
       });
-      throw new NotFoundException(`Failed to download document: ${error.message}`);
+      throw new NotFoundException(`Failed to download document: ${getErrorMessage(error)}`);
     }
+  }
+
+  // ── ZIP HELPER (compatible archiver v7 et v8) ───────────────────────
+  private createZipArchive(): any {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require("archiver");
+    const options = { zlib: { level: 9 } };
+
+    if (typeof mod === "function") return mod("zip", options);               // v7 et avant
+    if (mod?.ZipArchive) return new mod.ZipArchive(options);                 // v8
+    if (typeof mod?.default === "function") return mod.default("zip", options);
+    if (mod?.default?.ZipArchive) return new mod.default.ZipArchive(options);
+
+    throw new Error(
+      `Module archiver incompatible (type: ${typeof mod}, clés: ${Object.keys(mod ?? {}).join(", ")})`,
+    );
   }
 
   // ── DOWNLOAD DOCUMENTS ZIP ──────────────────────────────────────────
@@ -569,46 +589,50 @@ export class PropertiesService {
       throw new NotFoundException(`No documents found for property ${propertyId}`);
     }
 
-    const archiver = require('archiver');
-    return new Promise((resolve, reject) => {
-      const archive = archiver('zip', { zlib: { level: 9 } });
+    // 1) Lire tous les fichiers AVANT de créer l'archive
+    const files = await Promise.all(
+      documents.map(async (doc, index) => {
+        let buffer: Buffer;
+        try {
+          buffer = await this.storage.read(doc.storageKey);
+        } catch (readError) {
+          const reason = getErrorMessage(readError);
+          this.logger.error(`Cannot read document ${doc.id} (${doc.storageKey}): ${reason}`);
+          // Ajouter un fichier texte d'erreur au lieu de tout faire échouer
+          buffer = Buffer.from(
+            `Erreur: Impossible de récupérer le document "${doc.originalName || doc.title}"\n${reason}`,
+            "utf-8",
+          );
+        }
+        const baseName = doc.originalName || `document-${doc.id}.txt`;
+        const name = `${String(index + 1).padStart(3, "0")}-${baseName}`;
+        return { buffer, name };
+      }),
+    );
+
+    // 2) Construire le ZIP
+    return new Promise<Buffer>((resolve, reject) => {
+      let archive: any;
+      try {
+        archive = this.createZipArchive();
+      } catch (err) {
+        this.logger.error(`Cannot create ZIP archive: ${getErrorMessage(err)}`);
+        return reject(err);
+      }
+
       const chunks: Buffer[] = [];
 
-      archive.on('data', (chunk: Buffer) => chunks.push(chunk));
-      archive.on('end', () => resolve(Buffer.concat(chunks)));
-      archive.on('error', (err: Error) => reject(err));
+      archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+      archive.on("end", () => resolve(Buffer.concat(chunks)));
+      archive.on("error", (err: Error) => reject(err));
+      archive.on("warning", (err: Error) => this.logger.warn(`ZIP warning: ${err.message}`));
 
-      const promises = documents.map(async (doc, index) => {
-        try {
-          // Lecture directe du stockage
-          let buffer: Buffer;
-          try {
-            buffer = await this.storage.read(doc.storageKey);
-          } catch (readError) {
-            this.logger.error(`Cannot read document ${doc.id} (${doc.storageKey}): ${readError.message}`);
-            // Ajouter un fichier texte d'erreur au lieu de crasher
-            buffer = Buffer.from(`Erreur: Impossible de récupérer le document "${doc.originalName || doc.title}"\n${readError.message}`, 'utf-8');
-          }
+      for (const file of files) {
+        archive.append(file.buffer, { name: file.name });
+      }
 
-          const ext = doc.originalName?.split('.').pop() || 'txt';
-          const filename = `${String(index + 1).padStart(3, '0')}-${doc.originalName || `document-${doc.id}.${ext}`}`;
-
-          archive.append(buffer, { name: filename });
-        } catch (error) {
-          this.logger.error(`Error adding document ${doc.id} to zip: ${error.message}`);
-          // Ne pas crasher, continuer avec les autres fichiers
-        }
-      });
-
-      Promise.all(promises)
-        .then(() => {
-          this.logger.log(`Finalizing ZIP with ${documents.length} documents`);
-          return archive.finalize();
-        })
-        .catch((err) => {
-          this.logger.error(`Error finalizing ZIP: ${err.message}`);
-          reject(err);
-        });
+      this.logger.log(`Finalizing ZIP with ${files.length} documents`);
+      Promise.resolve(archive.finalize()).catch(reject);
     });
   }
 }
