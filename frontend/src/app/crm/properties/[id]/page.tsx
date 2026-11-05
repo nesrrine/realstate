@@ -472,7 +472,7 @@ export default function PropertyDetailsPage() {
               <CardDescription>
                 Titre foncier, plans et autres documents importants du bien
               </CardDescription>
-              {property.documents && property.documents.length > 0 && canEditProperty(user, property) && (
+              {property.documents && property.documents.length > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -480,7 +480,7 @@ export default function PropertyDetailsPage() {
                   disabled={isDownloadingDocs}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  {isDownloadingDocs ? "Téléchargement..." : "Télécharger ZIP"}
+                  {isDownloadingDocs ? "Téléchargement..." : "Télécharger tout (ZIP)"}
                 </Button>
               )}
             </CardHeader>
