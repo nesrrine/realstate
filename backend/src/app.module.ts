@@ -24,6 +24,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { ContactModule } from "./contact/contact.module";
 import { ExportsModule } from "./exports/exports.module";
 import { StudioModule } from "./studio/studio.module";
+import { HealthModule } from "./health/health.module";
 
 @Module({
   imports: [
@@ -47,7 +48,8 @@ import { StudioModule } from "./studio/studio.module";
     VisitsModule,
     TransactionsModule,
     CommissionsModule,
-     DashboardModule,
+    DashboardModule,
+    HealthModule,
      AgentsModule,
      NotificationsModule,
     ContactModule,
