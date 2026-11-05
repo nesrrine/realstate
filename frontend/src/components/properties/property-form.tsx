@@ -1268,7 +1268,22 @@ export function PropertyForm({ mode, property }: Props) {
             </CardHeader>
             <CardContent>
               <PropertyDocumentsManager
-                documents={NO_DOCUMENTS}
+                propertyId={property?.id}
+                documents={
+                  isEdit && property?.documents
+                    ? property.documents.map(doc => ({
+                        id: doc.id,
+                        name: doc.originalName || doc.title,
+                        type: (doc.category?.toLowerCase().includes('titre') || doc.category?.toLowerCase().includes('foncier'))
+                          ? 'title_deed'
+                          : doc.category?.toLowerCase().includes('plan')
+                          ? 'plan'
+                          : 'other',
+                        size: doc.size || 0,
+                        url: doc.url,
+                      }))
+                    : NO_DOCUMENTS
+                }
                 onDocumentsChange={(docs) => {
                   setPendingDocuments(docs);
                 }}

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Upload, X, File, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { propertiesService } from '@/services/properties.service';
+import { toast } from 'sonner';
 
 export interface DocumentFile {
   id: string;
@@ -12,9 +14,11 @@ export interface DocumentFile {
   size: number;
   url?: string;
   file?: File;
+  propertyId?: string;
 }
 
 interface PropertyDocumentsManagerProps {
+  propertyId?: string;
   documents?: DocumentFile[];
   onDocumentsChange?: (documents: DocumentFile[]) => void;
 }
@@ -26,15 +30,27 @@ const DOCUMENT_TYPES = {
 };
 
 export function PropertyDocumentsManager({
+  propertyId,
   documents = [],
   onDocumentsChange,
 }: PropertyDocumentsManagerProps) {
-  const [localDocuments, setLocalDocuments] = useState<DocumentFile[]>(documents);
+  // Documents existants (depuis le backend)
+  const [existingDocs, setExistingDocs] = useState<DocumentFile[]>(documents);
+  // Nouveaux documents ajoutés (pas encore uploadés)
+  const [newDocs, setNewDocs] = useState<DocumentFile[]>([]);
+
+  // Mettre à jour les documents existants quand les props changent
+  useEffect(() => {
+    setExistingDocs(documents);
+  }, [documents]);
+
+  // Combiner existants + nouveaux pour l'affichage
+  const allDocs = [...existingDocs, ...newDocs];
 
   const handleFileSelect = (type: keyof typeof DOCUMENT_TYPES, files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const newDocs: DocumentFile[] = Array.from(files).map((file) => ({
+    const addedDocs: DocumentFile[] = Array.from(files).map((file) => ({
       id: `temp-${Date.now()}-${Math.random()}`,
       name: file.name,
       type,
@@ -42,15 +58,49 @@ export function PropertyDocumentsManager({
       file,
     }));
 
-    const updated = [...localDocuments, ...newDocs];
-    setLocalDocuments(updated);
-    onDocumentsChange?.(updated);
+    const updatedNewDocs = [...newDocs, ...addedDocs];
+    setNewDocs(updatedNewDocs);
+    // Informer le parent seulement des NOUVEAUX documents
+    onDocumentsChange?.(updatedNewDocs);
   };
 
   const handleRemoveDocument = (id: string) => {
-    const updated = localDocuments.filter((doc) => doc.id !== id);
-    setLocalDocuments(updated);
-    onDocumentsChange?.(updated);
+    // Vérifier si c'est un document existant ou nouveau
+    const isExisting = existingDocs.some(doc => doc.id === id);
+    
+    if (isExisting) {
+      // Retirer des documents existants
+      setExistingDocs(prev => prev.filter(doc => doc.id !== id));
+      // Note: la suppression réelle devra être faite par le parent via une callback dédiée
+    } else {
+      // Retirer des nouveaux documents
+      const updatedNewDocs = newDocs.filter((doc) => doc.id !== id);
+      setNewDocs(updatedNewDocs);
+      onDocumentsChange?.(updatedNewDocs);
+    }
+  };
+
+  const handleDownloadDocument = async (doc: DocumentFile) => {
+    if (!propertyId) {
+      toast.error('ID de propriété manquant');
+      return;
+    }
+
+    try {
+      const blob = await propertiesService.downloadDocument(propertyId, doc.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Document téléchargé avec succès');
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      toast.error('Erreur lors du téléchargement du document');
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -64,7 +114,7 @@ export function PropertyDocumentsManager({
   const renderUploadSection = (type: keyof typeof DOCUMENT_TYPES) => {
     const config = DOCUMENT_TYPES[type];
     const Icon = config.icon;
-    const typeDocs = localDocuments.filter((doc) => doc.type === type);
+    const typeDocs = allDocs.filter((doc) => doc.type === type);
 
     return (
       <div key={type} className="space-y-3">
@@ -120,7 +170,8 @@ export function PropertyDocumentsManager({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => window.open(doc.url, '_blank')}
+                        onClick={() => handleDownloadDocument(doc)}
+                        title="Télécharger le document"
                       >
                         <Download className="h-4 w-4" />
                       </Button>
@@ -173,12 +224,12 @@ export function PropertyDocumentsManager({
         renderUploadSection(type as keyof typeof DOCUMENT_TYPES)
       )}
 
-      {localDocuments.length > 0 && (
+      {allDocs.length > 0 && (
         <div className="pt-4 border-t border-border">
           <p className="text-sm font-medium">
-            Total : {localDocuments.length} document{localDocuments.length > 1 ? 's' : ''}
+            Total : {allDocs.length} document{allDocs.length > 1 ? 's' : ''}
             {' '}
-            ({formatFileSize(localDocuments.reduce((sum, doc) => sum + doc.size, 0))})
+            ({formatFileSize(allDocs.reduce((sum, doc) => sum + doc.size, 0))})
           </p>
         </div>
       )}

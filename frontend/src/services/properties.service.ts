@@ -349,6 +349,15 @@ export const propertiesService = {
     return data;
   },
 
+  // ── Télécharger un document unique ───────────────────────────────
+  async downloadDocument(propertyId: string, documentId: string): Promise<Blob> {
+    const { data } = await apiClient.get(
+      `/properties/${propertyId}/documents/${documentId}/download`,
+      { responseType: 'blob' },
+    );
+    return data;
+  },
+
   // ── Télécharger tous les documents en ZIP ──────────────────────────
   async downloadDocumentsZip(propertyId: string): Promise<Blob> {
     const { data } = await apiClient.get(`/properties/${propertyId}/documents/download-zip`, {

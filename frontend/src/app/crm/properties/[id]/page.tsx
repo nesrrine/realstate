@@ -32,8 +32,6 @@ import {
   Download,
   Eye,
   FileText,
-  Upload,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -61,12 +59,6 @@ export default function PropertyDetailsPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingDocs, setIsDownloadingDocs] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [showUploadForm, setShowUploadForm] = useState(false);
-  const [uploadSectionId, setUploadSectionId] = useState<string>("");
-  const [uploadTitle, setUploadTitle] = useState("");
-  const [uploadDescription, setUploadDescription] = useState("");
-  const [uploadCategory, setUploadCategory] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const qc = useQueryClient();
 
   const {
@@ -78,33 +70,6 @@ export default function PropertyDetailsPage() {
     queryFn: () => propertiesService.getById(propertyId),
     enabled: !!propertyId,
     staleTime: 10 * 60_000,
-  });
-
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      return propertiesService.uploadDocument(
-        propertyId,
-        file,
-        uploadTitle || file.name,
-        uploadDescription || undefined,
-        uploadCategory || undefined,
-      );
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.properties.detail(propertyId),
-      });
-      toast.success("Document ajouté avec succès");
-      setShowUploadForm(false);
-      setUploadSectionId("");
-      setUploadTitle("");
-      setUploadDescription("");
-      setUploadCategory("");
-      setSelectedFile(null);
-    },
-    onError: (e: Error) => {
-      toast.error(e?.message || "Erreur lors de l'upload");
-    },
   });
 
   const handleDelete = async () => {
@@ -152,6 +117,24 @@ export default function PropertyDetailsPage() {
     // Empêche les doubles publications pendant le traitement
     if (isPublishing) return;
     publishMutation.mutate(!property?.isPublished);
+  };
+
+  const handleDownloadDocument = async (doc: PropertyDocument) => {
+    try {
+      const blob = await propertiesService.downloadDocument(propertyId, doc.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.originalName || doc.title;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Document téléchargé avec succès');
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      toast.error('Erreur lors du téléchargement du document');
+    }
   };
 
   const handleDownloadImages = async () => {
@@ -532,92 +515,8 @@ export default function PropertyDetailsPage() {
                       <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                         {section.title}
                       </h4>
-                      {canEditProperty(user, property) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={uploadMutation.isPending}
-                        onClick={() => {
-                          setUploadSectionId(section.id);
-                          setUploadCategory(section.category || "");
-                          setUploadTitle("");
-                          setUploadDescription("");
-                          setSelectedFile(null);
-                          setShowUploadForm(true);
-                        }}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Ajouter
-                      </Button>
-                      )}
                     </div>
-                    {showUploadForm && uploadSectionId === section.id ? (
-                      <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/50">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Fichier</label>
-                          <input
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.zip"
-                            onChange={(e) =>
-                              setSelectedFile(e.target.files?.[0] ?? null)
-                            }
-                            className="block w-full text-sm text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:opacity-90"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <input
-                            type="text"
-                            placeholder="Titre"
-                            value={uploadTitle}
-                            onChange={(e) => setUploadTitle(e.target.value)}
-                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Catégorie"
-                            value={uploadCategory}
-                            onChange={(e) => setUploadCategory(e.target.value)}
-                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Description"
-                            value={uploadDescription}
-                            onChange={(e) =>
-                              setUploadDescription(e.target.value)
-                            }
-                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            disabled={!selectedFile || uploadMutation.isPending}
-                            onClick={() => uploadMutation.mutate(selectedFile!)}
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            {uploadMutation.isPending
-                              ? "Upload..."
-                              : "Uploader"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setShowUploadForm(false);
-                              setUploadSectionId("");
-                              setSelectedFile(null);
-                              setUploadTitle("");
-                              setUploadDescription("");
-                              setUploadCategory("");
-                            }}
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            Annuler
-                          </Button>
-                        </div>
-                      </div>
-                    ) : docs.length > 0 ? (
+                    {docs.length > 0 ? (
                       <div className="space-y-2">
                         {docs.map((doc: PropertyDocument) => (
                           <div
@@ -649,12 +548,8 @@ export default function PropertyDetailsPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                const link = document.createElement("a");
-                                link.href = doc.url;
-                                link.download = doc.originalName || doc.title;
-                                link.click();
-                              }}
+                              onClick={() => handleDownloadDocument(doc)}
+                              title="Télécharger le document"
                             >
                               <Download className="h-4 w-4" />
                             </Button>
