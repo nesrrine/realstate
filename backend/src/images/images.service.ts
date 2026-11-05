@@ -12,6 +12,7 @@ import { IStorageService, STORAGE_SERVICE, UploadedFile } from "../storage/stora
 import { Role } from "../common/enums/role.enum";
 import { ReorderImagesDto } from "./dto/reorder-images.dto";
 import { UpdateImageDto } from "./dto/update-image.dto";
+import { createZipArchive, getErrorMessage } from "../common/zip.util";
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -274,41 +275,55 @@ export class ImagesService {
       throw new NotFoundException(`No images found for property ${propertyId}`);
     }
 
-    // Import dynamique d'archiver (ES module)
-    const { ZipArchive } = await import('archiver');
-
-    return new Promise((resolve, reject) => {
-      // Créer l'archive ZIP
-      const archive = new ZipArchive({ zlib: { level: 9 } });
-      const chunks: Buffer[] = [];
-
-      archive.on('data', (chunk: Buffer) => chunks.push(chunk));
-      archive.on('end', () => resolve(Buffer.concat(chunks)));
-      archive.on('error', (err: Error) => reject(err));
-
-      // Télécharger chaque image et l'ajouter au ZIP
-      const promises = images.map(async (img, index) => {
+    // 1) Lire toutes les images AVANT de créer l'archive
+    const results = await Promise.all(
+      images.map(async (img, index) => {
+        if (!img.storageKey) {
+          this.logger.warn(`Image ${img.id} has no storage key`);
+          return null;
+        }
         try {
-          if (!img.storageKey) {
-            this.logger.warn(`Image ${img.id} has no storage key`);
-            return;
-          }
           // Lecture directe du stockage (l'URL publique est relative au site)
           const buffer = await this.storage.read(img.storageKey);
-          
+          const baseName = img.originalName || `image-${img.id}.jpg`;
           // Nom de fichier: 001-image.jpg, 002-image.jpg, etc.
-          const ext = img.originalName?.split('.').pop() || 'jpg';
-          const filename = `${String(index + 1).padStart(3, '0')}-${img.originalName || `image-${img.id}.${ext}`}`;
-          
-          archive.append(buffer, { name: filename });
+          const name = `${String(index + 1).padStart(3, "0")}-${baseName}`;
+          return { buffer, name };
         } catch (error) {
-          this.logger.error(`Error adding image ${img.id} to zip: ${error.message}`);
+          this.logger.error(`Error reading image ${img.id}: ${getErrorMessage(error)}`);
+          return null;
         }
-      });
+      }),
+    );
 
-      Promise.all(promises)
-        .then(() => archive.finalize())
-        .catch((err) => reject(err));
+    const files = results.filter((f): f is { buffer: Buffer; name: string } => f !== null);
+    if (files.length === 0) {
+      throw new NotFoundException(`No readable images found for property ${propertyId}`);
+    }
+
+    // 2) Construire le ZIP
+    return new Promise<Buffer>((resolve, reject) => {
+      let archive: any;
+      try {
+        archive = createZipArchive();
+      } catch (err) {
+        this.logger.error(`Cannot create ZIP archive: ${getErrorMessage(err)}`);
+        return reject(err);
+      }
+
+      const chunks: Buffer[] = [];
+
+      archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+      archive.on("end", () => resolve(Buffer.concat(chunks)));
+      archive.on("error", (err: Error) => reject(err));
+      archive.on("warning", (err: Error) => this.logger.warn(`ZIP warning: ${err.message}`));
+
+      for (const file of files) {
+        archive.append(file.buffer, { name: file.name });
+      }
+
+      this.logger.log(`Finalizing ZIP with ${files.length} images`);
+      Promise.resolve(archive.finalize()).catch(reject);
     });
   }
 }
