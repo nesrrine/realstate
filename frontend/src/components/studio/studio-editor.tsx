@@ -1,3 +1,3 @@
-﻿// Studio editor - Fichier remplacé par studio-annonce/page.tsx
-// Ce fichier est conservé pour compatibilité mais n'est plus utilisé
+﻿// Ce fichier a été remplacé par studio-annonce/page.tsx
+// Conservé pour compatibilité uniquement
 export {};

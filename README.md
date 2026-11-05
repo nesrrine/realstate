@@ -1,72 +1,57 @@
-# Real Estate Platform
+# 🏠 Plateforme Immobilière
 
-Plateforme immobilière composée d'un site vitrine public et d'un CRM interne sécurisé.
+Application full-stack de gestion immobilière avec site public et CRM interne.
 
-## Stack technique
+## 🚀 Technologies
 
-| Couche       | Technologies                              |
-|------------- |------------------------------------------ |
-| Frontend     | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui |
-| Backend      | NestJS 10, TypeScript, REST API, Prisma   |
-| Base de données | PostgreSQL 16                          |
-| Infrastructure | Docker, Docker Compose                 |
+### Frontend
+- **Next.js 15** (App Router, React Server Components)
+- **TypeScript**
+- **Tailwind CSS** + shadcn/ui
+- **TanStack Query** (React Query)
+- **Framer Motion** (animations)
+
+### Backend
+- **NestJS** (Node.js framework)
+- **PostgreSQL** (Prisma ORM)
+- **JWT** (authentification)
+- **Swagger** (documentation API)
+- **Cloudinary** (stockage images)
 
 ---
 
-## Prérequis
+## 📦 Installation locale
 
-- [Node.js](https://nodejs.org/) >= 20
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (pour PostgreSQL)
-- npm >= 9
+### Prérequis
+- Node.js 18+
+- PostgreSQL 14+
+- npm ou yarn
 
----
-
-## Installation et lancement
-
-### 1. Cloner le repo et copier l'environnement
-
+### 1. Cloner le projet
 ```bash
-git clone <repo-url>
+git clone https://github.com/votre-username/real-estate-platform.git
 cd real-estate-platform
-cp .env.example .env
 ```
 
-### 2. Démarrer PostgreSQL via Docker
-
-```bash
-docker compose up postgres -d
-```
-
-Vérifier que PostgreSQL est healthy :
-
-```bash
-docker compose ps
-```
-
-### 3. Lancer le Backend (NestJS)
-
+### 2. Backend
 ```bash
 cd backend
 npm install
+cp .env.example .env
+# Configurez DATABASE_URL et autres variables dans .env
+npx prisma migrate dev
+npx prisma db seed
 npm run start:dev
 ```
 
-Le backend démarre sur **http://localhost:3001**
+Le backend démarre sur **http://localhost:3001/api**
 
-Vérifier le health check :
-
-```bash
-curl http://localhost:3001/api/health
-# { "status": "ok", "message": "Real Estate API is running" }
-```
-
-### 4. Lancer le Frontend (Next.js)
-
-Dans un nouveau terminal :
-
+### 3. Frontend
 ```bash
 cd frontend
 npm install
+cp .env.local.example .env.local
+# Configurez NEXT_PUBLIC_API_URL=http://localhost:3001/api
 npm run dev
 ```
 
@@ -74,73 +59,170 @@ Le frontend démarre sur **http://localhost:3000**
 
 ---
 
-## Tout lancer avec Docker Compose
+## 🌐 Déploiement
 
-```bash
-docker compose up --build
-```
+Consultez [DEPLOYMENT.md](./DEPLOYMENT.md) pour les instructions détaillées.
 
-Services disponibles :
-- **Frontend** : http://localhost:3000
-- **Backend** :  http://localhost:3001/api
-- **Health** :   http://localhost:3001/api/health
-- **PostgreSQL** : localhost:5432
+**Résumé** :
+- **Frontend** → Vercel
+- **Backend** → Render
+- **Base de données** → Neon PostgreSQL
+- **Stockage images** → Cloudinary
 
 ---
 
-## Variables d'environnement
+## 📚 Documentation
 
-Copier `.env.example` vers `.env` et adapter :
+- **API** : http://localhost:3001/api/docs (Swagger)
+- **Health** : http://localhost:3001/api/health
 
-| Variable           | Description                      | Défaut                    |
-|--------------------|----------------------------------|---------------------------|
-| `DATABASE_URL`     | URL de connexion PostgreSQL      | postgresql://postgres:postgres@localhost:5432/real_estate_db |
-| `POSTGRES_USER`    | Utilisateur PostgreSQL           | postgres                  |
-| `POSTGRES_PASSWORD`| Mot de passe PostgreSQL          | postgres                  |
-| `POSTGRES_DB`      | Nom de la base de données        | real_estate_db            |
-| `BACKEND_PORT`     | Port du backend                  | 3001                      |
-| `NEXT_PUBLIC_API_URL` | URL de l'API pour le frontend | http://localhost:3001     |
+### Identifiants de test
+| Email                | Mot de passe  | Rôle    |
+| -------------------- | ------------- | ------- |
+| admin@agency.com     | Admin1234!    | ADMIN   |
+| manager@agency.com   | Manager1234!  | MANAGER |
+| agent@agency.com     | Agent1234!    | AGENT   |
 
 ---
 
-## Structure du projet
+## 🏗️ Structure du projet
 
 ```
 real-estate-platform/
-├── frontend/               # Next.js 15 — App Router
-│   ├── app/                # Pages et layouts
-│   ├── components/         # Composants réutilisables
-│   │   └── ui/             # Composants shadcn/ui
-│   ├── lib/                # Utilitaires (cn, etc.)
-│   └── hooks/              # React hooks custom
-├── backend/                # NestJS 10 — REST API
+├── backend/                 # API NestJS
+│   ├── prisma/             # Schema et migrations
+│   │   ├── schema.prisma
+│   │   ├── seed.ts
+│   │   └── migrations/
 │   ├── src/
-│   │   ├── main.ts         # Point d'entrée
-│   │   ├── app.module.ts   # Module racine
-│   │   ├── app.controller.ts
-│   │   └── app.service.ts
-│   └── prisma/
-│       └── schema.prisma   # Schéma Prisma
-├── docker-compose.yml
-├── .env.example
-└── README.md
+│   │   ├── auth/           # Authentification JWT
+│   │   ├── properties/     # Gestion des biens
+│   │   ├── clients/        # Gestion des clients
+│   │   ├── visits/         # Visites
+│   │   ├── transactions/   # Ventes/locations
+│   │   ├── commissions/    # Calcul commissions
+│   │   ├── agents/         # Gestion agents
+│   │   ├── studio/         # Studio d'affiches
+│   │   └── public/         # API publique
+│   └── package.json
+│
+├── frontend/               # Application Next.js
+│   ├── src/
+│   │   ├── app/           # Pages (App Router)
+│   │   │   ├── (public)/  # Site public
+│   │   │   └── crm/       # CRM interne
+│   │   ├── components/    # Composants React
+│   │   ├── services/      # API clients
+│   │   ├── lib/           # Utilitaires
+│   │   └── hooks/         # Hooks React
+│   ├── public/            # Assets statiques
+│   └── package.json
+│
+├── .gitignore
+├── README.md
+├── DEPLOYMENT.md
+└── render.yaml            # Config Render
 ```
 
 ---
 
-## Endpoints API
+## 🔑 Fonctionnalités
 
-| Méthode | Route         | Description          |
-|---------|---------------|----------------------|
-| GET     | /api/health   | Health check         |
+### Site Public
+- ✅ Catalogue de biens (vente/location)
+- ✅ Recherche et filtres avancés
+- ✅ Pages détaillées des biens
+- ✅ Formulaires de contact
+- ✅ Page agence et équipe
+- ✅ Responsive design
+
+### CRM Interne
+- ✅ Gestion des biens immobiliers
+- ✅ Gestion des clients (acheteurs/vendeurs)
+- ✅ Planification des visites
+- ✅ Bon de visite imprimable (FR/AR)
+- ✅ Suivi des transactions
+- ✅ Calcul automatique des commissions
+- ✅ Studio d'affiches immobilières
+- ✅ Exports Excel
+- ✅ Dashboard analytics
+- ✅ Gestion multi-agents
+
+### Sécurité
+- ✅ Authentification JWT
+- ✅ Gestion des rôles (ADMIN, MANAGER, AGENT)
+- ✅ Validation des données (class-validator)
+- ✅ Protection CORS
+- ✅ Rate limiting
+- ✅ Hashing des mots de passe (bcrypt)
 
 ---
 
-## Prochaines étapes
+## 🧪 Tests
 
-- [ ] Auth (JWT)
-- [ ] Module Clients
-- [ ] Module Properties
-- [ ] Module Leads
-- [ ] Site vitrine complet
-- [ ] CRM interne
+```bash
+# Backend
+cd backend
+npm run test
+npm run test:e2e
+
+# Frontend
+cd frontend
+npm run test
+npm run test:e2e
+```
+
+---
+
+## 📝 Scripts utiles
+
+### Backend
+```bash
+npm run start:dev      # Mode développement
+npm run start:prod     # Mode production
+npm run build          # Build
+npx prisma studio      # Interface DB
+npx prisma migrate dev # Nouvelle migration
+npx prisma db seed     # Seed la DB
+```
+
+### Frontend
+```bash
+npm run dev            # Mode développement
+npm run build          # Build production
+npm run start          # Serveur production
+npm run lint           # Lint
+```
+
+---
+
+## 🤝 Contribution
+
+1. Fork le projet
+2. Créez votre branche (`git checkout -b feature/AmazingFeature`)
+3. Committez (`git commit -m 'Add some AmazingFeature'`)
+4. Push (`git push origin feature/AmazingFeature`)
+5. Ouvrez une Pull Request
+
+---
+
+## 📄 Licence
+
+Projet privé - Tous droits réservés
+
+---
+
+## 👨‍💻 Auteur
+
+Votre Nom - [votre@email.com](mailto:votre@email.com)
+
+---
+
+## 🙏 Remerciements
+
+- [Next.js](https://nextjs.org/)
+- [NestJS](https://nestjs.com/)
+- [Prisma](https://www.prisma.io/)
+- [shadcn/ui](https://ui.shadcn.com/)
+- [Vercel](https://vercel.com/)
+- [Render](https://render.com/)
