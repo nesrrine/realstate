@@ -1,14 +1,14 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
-import { CloudinaryStorageService } from '../storage/cloudinary-storage.service';
+import { IStorageService, STORAGE_SERVICE } from '../storage/storage.interface';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: CloudinaryStorageService,
+    @Inject(STORAGE_SERVICE) private readonly storage: IStorageService,
   ) {}
 
   @Get()
