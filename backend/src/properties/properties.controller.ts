@@ -165,24 +165,35 @@ export class PropertiesController {
   @ApiResponse({ status: 200, description: "Document file stream" })
   @ApiResponse({ status: 403, description: "Forbidden" })
   @ApiResponse({ status: 404, description: "Document not found" })
+  @ApiResponse({ status: 500, description: "Storage error" })
   async downloadDocument(
     @Param("id") id: string,
     @Param("documentId") documentId: string,
     @CurrentUser() user: any,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { stream, filename, contentType } = await this.propertiesService.downloadDocument(
-      id,
-      documentId,
-      user,
-    );
+    try {
+      const { stream, filename, contentType } = await this.propertiesService.downloadDocument(
+        id,
+        documentId,
+        user,
+      );
 
-    res.set({
-      'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${filename}"`,
-    });
+      res.set({
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+      });
 
-    return new StreamableFile(stream);
+      return new StreamableFile(stream);
+    } catch (error) {
+      // Log détaillé pour le débogage en production
+      console.error(`[PropertiesController] Error downloading document ${documentId} from property ${id}:`, {
+        error: error.message,
+        stack: error.stack,
+        user: user?.id,
+      });
+      throw error;
+    }
   }
 
   // ── GET /properties/:id/documents/download-zip ──────────────────────

@@ -74,12 +74,54 @@ export class CloudinaryStorageService implements IStorageService {
   }
 
   async read(key: string): Promise<Buffer> {
-    const url = this.isDocument(key)
-      ? this.privateUrl(path.basename(key))
-      : cloudinary.url(key, { secure: true, resource_type: "image" });
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Cloudinary fetch failed for ${key}: ${response.statusText}`);
-    return Buffer.from(await response.arrayBuffer());
+    try {
+      let url: string;
+      
+      if (this.isDocument(key)) {
+        // Pour les documents privés, utiliser l'API Cloudinary Admin au lieu de l'URL signée
+        this.logger.log(`Reading private document from Cloudinary: ${key}`);
+        
+        try {
+          // Utiliser l'API admin pour récupérer le contenu du fichier
+          const result = await cloudinary.api.resource(key, {
+            resource_type: 'raw',
+            type: 'private',
+          });
+          
+          // Télécharger directement depuis l'URL sécurisée
+          const response = await fetch(result.secure_url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch from secure URL: ${response.status} ${response.statusText}`);
+          }
+          
+          const buffer = Buffer.from(await response.arrayBuffer());
+          this.logger.log(`Successfully read ${buffer.length} bytes from private document ${key}`);
+          return buffer;
+        } catch (apiError) {
+          this.logger.error(`API method failed, trying signed URL fallback: ${apiError.message}`);
+          // Fallback: utiliser l'URL signée
+          url = this.privateUrl(path.basename(key));
+        }
+      } else {
+        // Pour les images publiques
+        url = cloudinary.url(key, { secure: true, resource_type: "image" });
+      }
+      
+      this.logger.log(`Reading file from Cloudinary URL: ${key}`);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Cloudinary fetch failed for ${key}: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      
+      const buffer = Buffer.from(await response.arrayBuffer());
+      this.logger.log(`Successfully read ${buffer.length} bytes from ${key}`);
+      return buffer;
+    } catch (error) {
+      this.logger.error(`Error reading from Cloudinary (${key}): ${error.message}`);
+      throw new Error(`Cannot read file from Cloudinary: ${error.message}`);
+    }
   }
 
   async delete(key: string): Promise<void> {

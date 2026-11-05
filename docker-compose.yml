@@ -1,59 +1,18 @@
-# Production : docker compose --env-file .env.production up -d --build
-# Un seul port public (3000) à placer derrière le HTTPS de l'hébergeur (Nginx, Caddy, Traefik…).
-# Le site sert aussi /api et /uploads : la base et le backend ne sont pas exposés sur Internet.
+version: '3.8'
 
 services:
-  # ─── PostgreSQL ─────────────────────────────────────────────────────────────
   postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
+    image: postgres:15-alpine
+    container_name: real-estate-postgres
+    restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER manquant}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
-      POSTGRES_DB: ${POSTGRES_DB:-real_estate_db}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: real_estate_db
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-real_estate_db}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ─── Backend (NestJS) ───────────────────────────────────────────────────────
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-real_estate_db}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET manquant (64 caractères aléatoires)}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
-      # Signature des liens de documents privés (sinon JWT_SECRET)
-      FILES_SECRET: ${FILES_SECRET:-}
-      FRONTEND_URL: ${PUBLIC_URL:?PUBLIC_URL manquant (ex. https://votre-domaine.tn)}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AGENCY_UTC_OFFSET: ${AGENCY_UTC_OFFSET:-+01:00}
-    volumes:
-      - uploads:/app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # ─── Frontend (Next.js) ─────────────────────────────────────────────────────
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_API_URL: ${PUBLIC_URL}/api
-        BACKEND_URL: http://backend:3001
-    restart: unless-stopped
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
-    depends_on:
-      - backend
 
 volumes:
   postgres_data:
-  # Photos et documents des biens : à inclure dans les sauvegardes (scripts/backup.sh)
-  uploads:

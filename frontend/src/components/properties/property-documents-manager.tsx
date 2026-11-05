@@ -87,11 +87,18 @@ export function PropertyDocumentsManager({
     }
 
     try {
+      console.log('Téléchargement du document:', doc);
       const blob = await propertiesService.downloadDocument(propertyId, doc.id);
+      
+      // Vérifier que le blob est valide
+      if (!blob || blob.size === 0) {
+        throw new Error('Le fichier téléchargé est vide ou introuvable');
+      }
+      
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = doc.name;
+      link.download = doc.name || 'document';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -99,7 +106,8 @@ export function PropertyDocumentsManager({
       toast.success('Document téléchargé avec succès');
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error);
-      toast.error('Erreur lors du téléchargement du document');
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      toast.error(`Erreur lors du téléchargement: ${errorMessage}`);
     }
   };
 

@@ -524,9 +524,14 @@ export class PropertiesService {
       throw new NotFoundException(`Document ${documentId} not found for property ${propertyId}`);
     }
 
+    this.logger.log(`Downloading document ${documentId} (${doc.originalName}) from property ${propertyId}`);
+    this.logger.log(`Storage key: ${doc.storageKey}, MIME type: ${doc.mimeType}`);
+
     try {
       // Fetch from storage (Cloudinary or local)
       const buffer = await this.storage.read(doc.storageKey);
+      
+      this.logger.log(`Successfully retrieved ${buffer.length} bytes for document ${documentId}`);
       
       return {
         stream: buffer,
@@ -534,8 +539,14 @@ export class PropertiesService {
         contentType: doc.mimeType || 'application/octet-stream',
       };
     } catch (error) {
-      this.logger.error(`Error downloading document ${documentId}: ${error.message}`);
-      throw new NotFoundException(`Failed to download document ${documentId}`);
+      this.logger.error(`Error downloading document ${documentId} from storage:`, {
+        error: error.message,
+        stack: error.stack,
+        storageKey: doc.storageKey,
+        documentId: doc.id,
+        propertyId,
+      });
+      throw new NotFoundException(`Failed to download document: ${error.message}`);
     }
   }
 
@@ -569,21 +580,35 @@ export class PropertiesService {
 
       const promises = documents.map(async (doc, index) => {
         try {
-          // Lecture directe du stockage (l'URL publique est relative au site)
-          const buffer = await this.storage.read(doc.storageKey);
+          // Lecture directe du stockage
+          let buffer: Buffer;
+          try {
+            buffer = await this.storage.read(doc.storageKey);
+          } catch (readError) {
+            this.logger.error(`Cannot read document ${doc.id} (${doc.storageKey}): ${readError.message}`);
+            // Ajouter un fichier texte d'erreur au lieu de crasher
+            buffer = Buffer.from(`Erreur: Impossible de récupérer le document "${doc.originalName || doc.title}"\n${readError.message}`, 'utf-8');
+          }
 
-          const ext = doc.originalName?.split('.').pop() || 'bin';
+          const ext = doc.originalName?.split('.').pop() || 'txt';
           const filename = `${String(index + 1).padStart(3, '0')}-${doc.originalName || `document-${doc.id}.${ext}`}`;
 
           archive.append(buffer, { name: filename });
         } catch (error) {
           this.logger.error(`Error adding document ${doc.id} to zip: ${error.message}`);
+          // Ne pas crasher, continuer avec les autres fichiers
         }
       });
 
       Promise.all(promises)
-        .then(() => archive.finalize())
-        .catch((err) => reject(err));
+        .then(() => {
+          this.logger.log(`Finalizing ZIP with ${documents.length} documents`);
+          return archive.finalize();
+        })
+        .catch((err) => {
+          this.logger.error(`Error finalizing ZIP: ${err.message}`);
+          reject(err);
+        });
     });
   }
 }

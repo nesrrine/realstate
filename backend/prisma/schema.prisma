@@ -1,7 +1,3 @@
-// =============================================================================
-// Real Estate Platform — Prisma Schema
-// =============================================================================
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,9 +7,484 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =============================================================================
-// ENUMS
-// =============================================================================
+model User {
+  id                String           @id @default(cuid())
+  email             String           @unique
+  firstName         String
+  lastName          String
+  phone             String?
+  role              Role             @default(AGENT)
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  passwordHash      String
+  passwordChangedAt DateTime?
+  agent             Agent?
+  cashEntries       CashEntry[]
+  studioCreations   StudioCreation[]
+
+  @@map("users")
+}
+
+model Agent {
+  id                      String              @id @default(cuid())
+  userId                  String              @unique
+  licenseNumber           String?             @unique
+  bio                     String?
+  avatarUrl               String?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  agentType               AgentType           @default(FIELD)
+  canManageCash           Boolean             @default(false)
+  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientInteractions      ClientInteraction[]
+  clients                 Client[]            @relation("ClientAgent")
+  fieldClients            Client[]            @relation("ClientFieldAgent")
+  leads                   Lead[]
+  notifications           Notification[]
+  properties              Property[]
+  fieldAgentTransactions  Transaction[]       @relation("FieldAgentTransactions")
+  officeAgentTransactions Transaction[]       @relation("OfficeAgentTransactions")
+  fieldAgentVisits        Visit[]             @relation("FieldAgentVisits")
+  officeAgentVisits       Visit[]             @relation("OfficeAgentVisits")
+
+  @@map("agents")
+}
+
+model Client {
+  id                     String              @id @default(cuid())
+  agentId                String
+  firstName              String
+  lastName               String
+  email                  String?             @unique
+  phone                  String
+  notes                  String?
+  isActive               Boolean             @default(true)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  address                String?
+  bedrooms               Int?
+  budgetMax              Decimal?            @db.Decimal(12, 2)
+  budgetMin              Decimal?            @db.Decimal(12, 2)
+  city                   String?
+  minSurface             Float?
+  preferredPropertyTypes String[]
+  preferredZones         String[]
+  transactionType        TransactionType?
+  whatsapp               String?
+  zipCode                String?
+  clientType             ClientType?
+  status                 ContactStatus       @default(PROSPECT)
+  followUpStatus         FollowUpStatus      @default(TO_CONTACT)
+  lastInteractionAt      DateTime?
+  nextFollowUpAt         DateTime?
+  professionalAddress    String?
+  cinOrPassport          String?
+  fieldAgentId           String?
+  financing              String?
+  needDescription        String?
+  interactions           ClientInteraction[]
+  agent                  Agent               @relation("ClientAgent", fields: [agentId], references: [id])
+  fieldAgent             Agent?              @relation("ClientFieldAgent", fields: [fieldAgentId], references: [id])
+  leads                  Lead[]
+  notifications          Notification[]
+  transactions           Transaction[]
+  visits                 Visit[]
+
+  @@index([agentId])
+  @@index([isActive])
+  @@index([status])
+  @@index([clientType])
+  @@map("clients")
+}
+
+model Owner {
+  id           String        @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String?       @unique
+  phone        String
+  address      String?
+  notes        String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  city         String?
+  country      String?       @default("TN")
+  whatsapp     String?
+  zipCode      String?
+  properties   Property[]
+  transactions Transaction[]
+
+  @@index([isActive])
+  @@map("owners")
+}
+
+model Property {
+  id                       String             @id @default(cuid())
+  agentId                  String
+  ownerId                  String
+  title                    String
+  description              String?
+  type                     PropertyType
+  status                   PropertyStatus     @default(DRAFT)
+  address                  String
+  city                     String
+  district                 String?
+  zipCode                  String?
+  country                  String             @default("TN")
+  latitude                 Float?
+  longitude                Float?
+  surface                  Float
+  rooms                    Int?
+  bedrooms                 Int?
+  bathrooms                Int?
+  floor                    Int?
+  totalFloors              Int?
+  parking                  Boolean            @default(false)
+  furnished                Boolean            @default(false)
+  elevator                 Boolean            @default(false)
+  balcony                  Boolean            @default(false)
+  garden                   Boolean            @default(false)
+  cellar                   Boolean            @default(false)
+  price                    Decimal            @db.Decimal(12, 2)
+  pricePerSqm              Decimal?           @db.Decimal(10, 2)
+  charges                  Decimal?           @db.Decimal(10, 2)
+  deposit                  Decimal?           @db.Decimal(10, 2)
+  isPublished              Boolean            @default(false)
+  publishedAt              DateTime?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  transactionType          TransactionType    @default(SALE)
+  reference                String             @unique
+  googleMapsUrl            String?
+  businessActivity         String?
+  businessDailyRevenue     Decimal?           @db.Decimal(12, 2)
+  businessEmployees        Int?
+  businessRent             Decimal?           @db.Decimal(10, 2)
+  landCorner               Boolean            @default(false)
+  landCos                  Float?
+  landCuf                  Float?
+  landDepth                Float?
+  landFrontage             Float?
+  landServiced             Boolean            @default(false)
+  landZoning               String?
+  commercialCeilingHeight  Float?
+  commercialFrontage       Float?
+  commercialLeased         Boolean            @default(false)
+  commercialMezzanine      Boolean            @default(false)
+  commercialMonthlyRevenue Decimal?           @db.Decimal(12, 2)
+  titleType                String?
+  notes                    String?
+  leadProperties           LeadProperty[]
+  agent                    Agent              @relation(fields: [agentId], references: [id])
+  owner                    Owner              @relation(fields: [ownerId], references: [id])
+  documents                PropertyDocument[]
+  images                   PropertyImage[]
+  studioCreations          StudioCreation[]
+  transactions             Transaction[]
+  visitProperties          VisitProperty[]
+
+  @@index([status])
+  @@index([type])
+  @@index([city])
+  @@index([agentId])
+  @@index([ownerId])
+  @@index([transactionType])
+  @@index([isPublished])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([city, status])
+  @@index([status, isPublished])
+  @@index([price])
+  @@index([surface])
+  @@map("properties")
+}
+
+model PropertyImage {
+  id           String   @id @default(cuid())
+  propertyId   String
+  url          String
+  altText      String?
+  isCover      Boolean  @default(false)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  mimeType     String?
+  originalName String?
+  size         Int?
+  storageKey   String?
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@map("property_images")
+}
+
+model PropertyDocument {
+  id                     String   @id @default(cuid())
+  propertyId             String
+  title                  String
+  description            String?
+  url                    String
+  storageKey             String
+  size                   Int?
+  mimeType               String?
+  originalName           String?
+  category               String?
+  createdAt              DateTime @default(now())
+  cloudinaryDeliveryType String?  @default("private") @map("cloudinary_delivery_type")
+  cloudinaryPublicId     String?  @map("cloudinary_public_id")
+  cloudinaryResourceType String?  @map("cloudinary_resource_type")
+  property               Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([category])
+  @@map("property_documents")
+}
+
+model Lead {
+  id           String         @id @default(cuid())
+  clientId     String
+  agentId      String
+  status       LeadStatus     @default(NEW)
+  notes        String?
+  budget       Decimal?       @db.Decimal(12, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  lostDate     DateTime?
+  lostReason   String?
+  nextFollowUp DateTime?
+  wonDate      DateTime?
+  source       LeadSource     @default(OTHER)
+  activities   LeadActivity[]
+  properties   LeadProperty[]
+  agent        Agent          @relation(fields: [agentId], references: [id])
+  client       Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([agentId])
+  @@index([clientId])
+  @@index([source])
+  @@map("leads")
+}
+
+model LeadProperty {
+  id         String   @id @default(cuid())
+  leadId     String
+  propertyId String
+  createdAt  DateTime @default(now())
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, propertyId])
+  @@index([leadId])
+  @@index([propertyId])
+  @@map("lead_properties")
+}
+
+model LeadActivity {
+  id        String           @id @default(cuid())
+  leadId    String
+  agentId   String?
+  type      LeadActivityType
+  title     String
+  body      String?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  lead      Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([createdAt])
+  @@map("lead_activities")
+}
+
+model ClientInteraction {
+  id         String          @id @default(cuid())
+  clientId   String
+  agentId    String?
+  type       InteractionType
+  title      String
+  body       String?
+  occurredAt DateTime        @default(now())
+  createdAt  DateTime        @default(now())
+  agent      Agent?          @relation(fields: [agentId], references: [id])
+  client     Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([occurredAt])
+  @@map("client_interactions")
+}
+
+model Visit {
+  id            String          @id @default(cuid())
+  clientId      String
+  status        VisitStatus     @default(SCHEDULED)
+  scheduledAt   DateTime
+  completedAt   DateTime?
+  duration      Int?
+  feedback      String?
+  rating        Int?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  fieldAgentId  String
+  officeAgentId String
+  visitType     VisitType       @default(IN_PERSON)
+  cashEntries   CashEntry[]
+  properties    VisitProperty[]
+  client        Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  fieldAgent    Agent           @relation("FieldAgentVisits", fields: [fieldAgentId], references: [id])
+  officeAgent   Agent           @relation("OfficeAgentVisits", fields: [officeAgentId], references: [id])
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([fieldAgentId])
+  @@index([officeAgentId])
+  @@index([clientId])
+  @@index([createdAt])
+  @@map("visits")
+}
+
+model VisitProperty {
+  id         String   @id @default(cuid())
+  visitId    String
+  propertyId String
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  visit      Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@unique([visitId, propertyId])
+  @@index([visitId])
+  @@index([propertyId])
+  @@map("visit_properties")
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  propertyId      String
+  clientId        String
+  ownerId         String
+  type            TransactionType
+  amount          Decimal           @db.Decimal(12, 2)
+  agencyFeeRate   Decimal?          @db.Decimal(5, 4)
+  agencyFeeAmount Decimal?          @db.Decimal(10, 2)
+  date            DateTime?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  status          TransactionStatus @default(PENDING)
+  fieldAgentId    String
+  officeAgentId   String
+  commission      Commission?
+  client          Client            @relation(fields: [clientId], references: [id])
+  fieldAgent      Agent             @relation("FieldAgentTransactions", fields: [fieldAgentId], references: [id])
+  officeAgent     Agent             @relation("OfficeAgentTransactions", fields: [officeAgentId], references: [id])
+  owner           Owner             @relation(fields: [ownerId], references: [id])
+  property        Property          @relation(fields: [propertyId], references: [id])
+
+  @@index([type])
+  @@index([status])
+  @@index([fieldAgentId])
+  @@index([officeAgentId])
+  @@index([propertyId])
+  @@index([clientId])
+  @@index([ownerId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("transactions")
+}
+
+model Commission {
+  id                   String                  @id @default(cuid())
+  transactionId        String                  @unique
+  amount               Decimal                 @db.Decimal(10, 2)
+  paidAt               DateTime?
+  notes                String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  commissionRate       Decimal                 @db.Decimal(5, 4)
+  agencyAmount         Decimal                 @db.Decimal(10, 2)
+  paymentStatus        CommissionPaymentStatus @default(PENDING)
+  fieldAgentAmount     Decimal                 @db.Decimal(10, 2)
+  officeAgentAmount    Decimal                 @db.Decimal(10, 2)
+  fieldAgentShareRate  Decimal                 @db.Decimal(5, 4)
+  officeAgentShareRate Decimal                 @db.Decimal(5, 4)
+  transaction          Transaction             @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([paymentStatus])
+  @@map("commissions")
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  agentId   String?
+  clientId  String?
+  title     String
+  body      String
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  link      String?
+  createdAt DateTime  @default(now())
+  agent     Agent?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, isRead])
+  @@index([clientId, isRead])
+  @@map("notifications")
+}
+
+model CashEntry {
+  id            String        @id @default(cuid())
+  type          CashEntryType
+  date          DateTime      @db.Date
+  amount        Decimal       @db.Decimal(10, 2)
+  label         String
+  category      String?
+  paymentMethod String?
+  visitId       String?
+  createdById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  createdBy     User          @relation(fields: [createdById], references: [id])
+  visit         Visit?        @relation(fields: [visitId], references: [id])
+
+  @@index([date])
+  @@index([type])
+  @@map("cash_entries")
+}
+
+model StudioCreation {
+  id            String   @id @default(cuid())
+  propertyId    String
+  title         String
+  template      String
+  format        String
+  imageUrls     String[]
+  descriptionFr String?
+  descriptionTn String?
+  descriptionIg String?
+  status        String   @default("DRAFT")
+  platform      String?
+  shareUrl      String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([template])
+  @@index([createdAt])
+  @@index([createdById])
+  @@map("studio_creations")
+}
 
 enum Role {
   ADMIN
@@ -48,13 +519,13 @@ enum TransactionType {
 
 enum LeadStatus {
   NEW
-  A_CONTACT
   CONTACTED
   QUALIFIED
   VISIT_SCHEDULED
   NEGOTIATION
   WON
   LOST
+  A_CONTACT
 }
 
 enum LeadSource {
@@ -138,606 +609,7 @@ enum CommissionPaymentStatus {
   CANCELLED
 }
 
-// =============================================================================
-// USER
-// =============================================================================
-
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  phone        String?
-  role         Role     @default(AGENT)
-  isActive     Boolean  @default(true)
-  // Sessions (JWT) émises avant cette date refusées : changement / réinitialisation du mot de passe
-  passwordChangedAt DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  agent       Agent?
-  cashEntries CashEntry[]
-  studioCreations StudioCreation[]
-
-  @@map("users")
-}
-
-// =============================================================================
-// AGENT
-// =============================================================================
-
-model Agent {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  licenseNumber String?   @unique
-  bio           String?
-  avatarUrl     String?
-  agentType     AgentType @default(FIELD)
-  canManageCash Boolean   @default(false) // accès frais de visite / dépenses, accordé par le gérant
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clients                 Client[]            @relation("ClientAgent")
-  fieldClients            Client[]            @relation("ClientFieldAgent")
-  leads                   Lead[]
-  properties              Property[]
-  fieldAgentVisits        Visit[]             @relation("FieldAgentVisits")
-  officeAgentVisits       Visit[]             @relation("OfficeAgentVisits")
-  fieldAgentTransactions  Transaction[]       @relation("FieldAgentTransactions")
-  officeAgentTransactions Transaction[]       @relation("OfficeAgentTransactions")
-  notifications           Notification[]
-  clientInteractions      ClientInteraction[]
-
-  @@map("agents")
-}
-
-// =============================================================================
-// CLIENT
-// =============================================================================
-
-model Client {
-  id      String @id @default(cuid())
-  agentId String
-
-  // Identity
-  firstName     String
-  lastName      String
-  email         String? @unique
-  phone         String
-  whatsapp      String?
-  cinOrPassport String?
-
-  // Address
-  address             String?
-  city                String?
-  zipCode             String?
-  professionalAddress String?
-
-  // Search criteria
-  budgetMin              Decimal?         @db.Decimal(12, 2)
-  budgetMax              Decimal?         @db.Decimal(12, 2)
-  preferredZones         String[]
-  preferredPropertyTypes String[]
-  minSurface             Float?
-  bedrooms               Int?
-  transactionType        TransactionType?
-  financing              String? // CASH | CREDIT | MIXED (mode de paiement)
-  needDescription        String? // besoin exact du client, en clair
-
-  // Meta
-  notes             String?
-  isActive          Boolean        @default(true)
-  clientType        ClientType?
-  status            ContactStatus  @default(PROSPECT)
-  // Suivi commercial
-  followUpStatus    FollowUpStatus @default(TO_CONTACT)
-  lastInteractionAt DateTime?
-  nextFollowUpAt    DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-
-  fieldAgentId String? // agent terrain qui fait les visites (l'agent principal reste l'agent bureau)
-
-  agent         Agent               @relation("ClientAgent", fields: [agentId], references: [id], onDelete: Restrict)
-  fieldAgent    Agent?              @relation("ClientFieldAgent", fields: [fieldAgentId], references: [id], onDelete: SetNull)
-  leads         Lead[]
-  visits        Visit[]
-  interactions  ClientInteraction[]
-  transactions  Transaction[]
-  notifications Notification[]
-
-  @@index([agentId])
-  @@index([isActive])
-  @@index([status])
-  @@index([clientType])
-  @@map("clients")
-}
-
-// =============================================================================
-// OWNER
-// =============================================================================
-
-model Owner {
-  id String @id @default(cuid())
-
-  // Identity
-  firstName String
-  lastName  String
-  email     String? @unique
-  phone     String
-  whatsapp  String?
-
-  // Address
-  address String?
-  city    String?
-  zipCode String?
-  country String? @default("TN")
-
-  // Meta
-  notes     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  properties   Property[]
-  transactions Transaction[]
-
-  @@index([isActive])
-  @@map("owners")
-}
-
-// =============================================================================
-// PROPERTY
-// =============================================================================
-
-model Property {
-  id              String          @id @default(cuid())
-  reference       String          @unique
-  agentId         String
-  ownerId         String
-  title           String
-  description     String?
-  type            PropertyType
-  transactionType TransactionType @default(SALE)
-  status          PropertyStatus  @default(DRAFT)
-
-  // Address
-  address       String
-  city          String
-  district      String?
-  zipCode       String?
-  country       String  @default("TN")
-  latitude      Float?
-  longitude     Float?
-  googleMapsUrl String?
-
-  // Characteristics
-  surface     Float // m²
-  rooms       Int?
-  bedrooms    Int?
-  bathrooms   Int?
-  floor       Int?
-  totalFloors Int?
-  parking     Boolean @default(false)
-  furnished   Boolean @default(false)
-  elevator    Boolean @default(false)
-  balcony     Boolean @default(false)
-  garden      Boolean @default(false)
-  cellar      Boolean @default(false)
-
-  // Titre de propriété (tous les biens)
-  titleType String? // INDIVIDUAL | COLLECTIVE | IN_PROGRESS | NONE
-
-  // Local commercial
-  commercialMonthlyRevenue Decimal? @db.Decimal(12, 2) // revenu par mois
-  commercialLeased         Boolean  @default(false) // actuellement loué
-  commercialFrontage       Float? // façade vitrine (m)
-  commercialCeilingHeight  Float? // hauteur sous plafond (m)
-  commercialMezzanine      Boolean  @default(false)
-
-  // Terrain
-  landFrontage Float? // façade (m)
-  landDepth    Float? // profondeur (m)
-  landCos      Float? // coefficient d'occupation du sol
-  landCuf      Float? // coefficient d'utilisation foncière
-  landZoning   String? // RESIDENTIAL | AGRICULTURAL | INDUSTRIAL | TOURISTIC | MIXED
-  landServiced Boolean @default(false) // viabilisé (eau, électricité)
-  landCorner   Boolean @default(false) // terrain d'angle
-
-  // Fonds de commerce
-  businessActivity     String?
-  businessDailyRevenue Decimal? @db.Decimal(12, 2) // recette par jour
-  businessRent         Decimal? @db.Decimal(10, 2) // loyer mensuel du local
-  businessEmployees    Int?
-
-  // Pricing
-  price       Decimal  @db.Decimal(12, 2)
-  pricePerSqm Decimal? @db.Decimal(10, 2)
-  charges     Decimal? @db.Decimal(10, 2) // monthly charges
-  deposit     Decimal? @db.Decimal(10, 2) // caution / dépôt de garantie
-
-  // Note interne (visible uniquement par l'agence)
-  notes String? // commentaires internes sur le bien
-
-  isPublished Boolean   @default(false)
-  publishedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  agent           Agent              @relation(fields: [agentId], references: [id], onDelete: Restrict)
-  owner           Owner              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  images          PropertyImage[]
-  documents       PropertyDocument[]
-  leadProperties  LeadProperty[]
-  visitProperties VisitProperty[]
-  transactions    Transaction[]
-  studioCreations StudioCreation[]
-
-  @@index([status])
-  @@index([type])
-  @@index([city])
-  @@index([agentId])
-  @@index([ownerId])
-  @@index([transactionType])
-  @@index([isPublished])
-  @@index([createdAt])
-  @@index([updatedAt])
-  @@index([city, status])
-  @@index([status, isPublished])
-  @@index([price])
-  @@index([surface])
-  @@map("properties")
-}
-
-// =============================================================================
-// PROPERTY IMAGE
-// =============================================================================
-
-model PropertyImage {
-  id           String   @id @default(cuid())
-  propertyId   String
-  url          String
-  storageKey   String? // storage path or Cloudinary public_id
-  altText      String?
-  isCover      Boolean  @default(false)
-  order        Int      @default(0)
-  size         Int? // bytes
-  mimeType     String?
-  originalName String?
-  createdAt    DateTime @default(now())
-
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@map("property_images")
-}
-
-// =============================================================================
-// PROPERTY DOCUMENT
-// =============================================================================
-
-model PropertyDocument {
-  id           String   @id @default(cuid())
-  propertyId   String
-  title        String
-  description  String?
-  url          String
-  storageKey   String
-  size         Int? // bytes
-  mimeType     String?
-  originalName String?
-  category     String? // e.g. "diagnostic", "plan", "contrat", "autre"
-  createdAt    DateTime @default(now())
-  cloudinaryPublicId       String? @map("cloudinary_public_id")
-  cloudinaryResourceType   String? @map("cloudinary_resource_type")
-  cloudinaryDeliveryType   String? @default("private") @map("cloudinary_delivery_type")
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@index([category])
-  @@map("property_documents")
-}
-
-// =============================================================================
-// LEAD
-// =============================================================================
-
-model Lead {
-  id       String     @id @default(cuid())
-  clientId String
-  agentId  String
-  status   LeadStatus @default(NEW)
-  source   LeadSource @default(OTHER)
-  notes    String?
-  budget   Decimal?   @db.Decimal(12, 2)
-
-  // Kanban / pipeline helpers
-  lostReason   String?
-  wonDate      DateTime?
-  lostDate     DateTime?
-  nextFollowUp DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  client     Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  agent      Agent          @relation(fields: [agentId], references: [id], onDelete: Restrict)
-  activities LeadActivity[]
-  properties LeadProperty[]
-
-  @@index([status])
-  @@index([agentId])
-  @@index([clientId])
-  @@index([source])
-  @@map("leads")
-}
-
-model LeadProperty {
-  id         String   @id @default(cuid())
-  leadId     String
-  propertyId String
-  createdAt  DateTime @default(now())
-
-  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@unique([leadId, propertyId])
-  @@index([leadId])
-  @@index([propertyId])
-  @@map("lead_properties")
-}
-
-// Lead Activity — timeline of every action on a lead
-model LeadActivity {
-  id        String           @id @default(cuid())
-  leadId    String
-  agentId   String?
-  type      LeadActivityType
-  title     String // human-readable summary
-  body      String? // optional detail
-  metadata  Json? // extra data (e.g. {fromStatus, toStatus})
-  createdAt DateTime         @default(now())
-
-  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
-
-  @@index([leadId])
-  @@index([createdAt])
-  @@map("lead_activities")
-}
-
-// Client Interaction — historique des appels, messages, visites et notes de suivi
-model ClientInteraction {
-  id         String          @id @default(cuid())
-  clientId   String
-  agentId    String?
-  type       InteractionType
-  title      String
-  body       String?
-  occurredAt DateTime        @default(now())
-  createdAt  DateTime        @default(now())
-
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  agent  Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
-
-  @@index([clientId])
-  @@index([occurredAt])
-  @@map("client_interactions")
-}
-
-// =============================================================================
-// VISIT
-// =============================================================================
-
-model Visit {
-  id            String      @id @default(cuid())
-  clientId      String
-  fieldAgentId  String
-  officeAgentId String
-  visitType     VisitType   @default(IN_PERSON)
-  status        VisitStatus @default(SCHEDULED)
-  scheduledAt   DateTime
-  completedAt   DateTime?
-  duration      Int? // minutes
-  feedback      String? // agent notes after visit
-  rating        Int? // client rating 1–5
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  cashEntries CashEntry[]
-
-  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  fieldAgent  Agent           @relation("FieldAgentVisits", fields: [fieldAgentId], references: [id], onDelete: Restrict)
-  officeAgent Agent           @relation("OfficeAgentVisits", fields: [officeAgentId], references: [id], onDelete: Restrict)
-  properties  VisitProperty[]
-
-  @@index([status])
-  @@index([scheduledAt])
-  @@index([fieldAgentId])
-  @@index([officeAgentId])
-  @@index([clientId])
-  @@index([createdAt])
-  @@map("visits")
-}
-
-model VisitProperty {
-  id         String   @id @default(cuid())
-  visitId    String
-  propertyId String
-  createdAt  DateTime @default(now())
-
-  visit    Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@unique([visitId, propertyId])
-  @@index([visitId])
-  @@index([propertyId])
-  @@map("visit_properties")
-}
-
-// =============================================================================
-// TRANSACTION
-// =============================================================================
-
-model Transaction {
-  id              String            @id @default(cuid())
-  propertyId      String
-  clientId        String
-  ownerId         String
-  fieldAgentId    String
-  officeAgentId   String
-  type            TransactionType
-  amount          Decimal           @db.Decimal(12, 2)
-  date            DateTime?
-  status          TransactionStatus @default(PENDING)
-  agencyFeeRate   Decimal?          @db.Decimal(5, 4)
-  agencyFeeAmount Decimal?          @db.Decimal(10, 2)
-  notes           String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  client      Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  owner       Owner       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  fieldAgent  Agent       @relation("FieldAgentTransactions", fields: [fieldAgentId], references: [id], onDelete: Restrict)
-  officeAgent Agent       @relation("OfficeAgentTransactions", fields: [officeAgentId], references: [id], onDelete: Restrict)
-  commission  Commission?
-
-  @@index([type])
-  @@index([status])
-  @@index([fieldAgentId])
-  @@index([officeAgentId])
-  @@index([propertyId])
-  @@index([clientId])
-  @@index([ownerId])
-  @@index([createdAt])
-  @@index([updatedAt])
-  @@map("transactions")
-}
-
-// =============================================================================
-// COMMISSION
-// =============================================================================
-
-model Commission {
-  id                   String                  @id @default(cuid())
-  transactionId        String                  @unique
-  commissionRate       Decimal                 @db.Decimal(5, 4)
-  agencyAmount         Decimal                 @db.Decimal(10, 2)
-  fieldAgentAmount     Decimal                 @db.Decimal(10, 2)
-  officeAgentAmount    Decimal                 @db.Decimal(10, 2)
-  fieldAgentShareRate  Decimal                 @db.Decimal(5, 4)
-  officeAgentShareRate Decimal                 @db.Decimal(5, 4)
-  amount               Decimal                 @db.Decimal(10, 2)
-  paymentStatus        CommissionPaymentStatus @default(PENDING)
-  paidAt               DateTime?
-  notes                String?
-  createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
-
-  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  @@index([paymentStatus])
-  @@map("commissions")
-}
-
-// =============================================================================
-// APP SETTINGS
-// =============================================================================
-
-model AppSetting {
-  key       String   @id
-  value     String
-  updatedAt DateTime @updatedAt
-
-  @@map("app_settings")
-}
-
-// =============================================================================
-// NOTIFICATION
-// =============================================================================
-
-model Notification {
-  id        String    @id @default(cuid())
-  agentId   String?
-  clientId  String?
-  title     String
-  body      String
-  isRead    Boolean   @default(false)
-  readAt    DateTime?
-  link      String? // optional deep link
-  createdAt DateTime  @default(now())
-
-  agent  Agent?  @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@index([agentId, isRead])
-  @@index([clientId, isRead])
-  @@map("notifications")
-}
-
-// =============================================================================
-// FRAIS DE VISITE & DÉPENSES (caisse journalière)
-// =============================================================================
-
 enum CashEntryType {
-  VISIT_FEE // frais de visite encaissé
-  EXPENSE // dépense
-}
-
-model CashEntry {
-  id            String        @id @default(cuid())
-  type          CashEntryType
-  date          DateTime      @db.Date // jour de l'opération
-  amount        Decimal       @db.Decimal(10, 2)
-  label         String
-  category      String? // dépenses : TRANSPORT, FUEL, PHONE, OFFICE, ADVERTISING, MEAL, OTHER
-  paymentMethod String? // CASH | CARD | TRANSFER | CHECK
-  visitId       String?
-  createdById   String
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  visit     Visit? @relation(fields: [visitId], references: [id], onDelete: SetNull)
-  createdBy User   @relation(fields: [createdById], references: [id], onDelete: Restrict)
-
-  @@index([date])
-  @@index([type])
-  @@map("cash_entries")
-}
-
-// =============================================================================
-// IMMOBILIER STUDIO — Créations d'affiches & annonce
-// =============================================================================
-
-model StudioCreation {
-  id            String        @id @default(cuid())
-  propertyId    String        // bien source
-  property      Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  title         String        // titre édité
-  template      String        // BLUE_PREMIUM, BLUE_MODERN, LUXURY, MINIMAL, FLASH_SALE
-  format        String        // PORTRAIT, STORY, SQUARE
-  imageUrls     String[]     // URLs des images exportées (stockées dans /uploads)
-  descriptionFr String?       // description française
-  descriptionTn String?       // description tunisienne
-  descriptionIg String?       // description Instagram
-  status        String        @default("DRAFT") // DRAFT, EXPORTED, SHARED
-  platform      String?       // WHATSAPP, FACEBOOK, COPY, ZIP, ...
-  shareUrl      String?       // lien de partage copié
-  metadata      Json?         // éditeur : couleurs, police, positionnement
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  createdById   String
-  createdBy     User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
-
-  @@index([propertyId])
-  @@index([template])
-  @@index([createdAt])
-  @@index([createdById])
-  @@map("studio_creations")
+  VISIT_FEE
+  EXPENSE
 }
