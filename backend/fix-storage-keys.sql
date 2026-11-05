@@ -9,7 +9,7 @@ SELECT
     COUNT(*) as "Documents à corriger",
     COUNT(*) FILTER (WHERE "storageKey" LIKE 'real-estate/%') as "Déjà corrects",
     COUNT(*) FILTER (WHERE "storageKey" NOT LIKE 'real-estate/%') as "À modifier"
-FROM "PropertyDocument";
+FROM "property_documents";
 
 -- ============================================================================
 
@@ -24,7 +24,7 @@ SELECT
         WHEN "storageKey" LIKE 'documents/%' THEN CONCAT('real-estate/', "storageKey")
         ELSE CONCAT('real-estate/documents/', "storageKey")
     END as "Nouveau storage_key"
-FROM "PropertyDocument"
+FROM "property_documents"
 WHERE "storageKey" NOT LIKE 'real-estate/%'
 LIMIT 10;
 
@@ -32,17 +32,17 @@ LIMIT 10;
 
 -- Étape 3: SAUVEGARDER LA TABLE (IMPORTANT - Faites ceci AVANT l'UPDATE!)
 -- (Cette commande crée une copie de sécurité)
-CREATE TABLE "PropertyDocument_backup" AS 
-SELECT * FROM "PropertyDocument";
+CREATE TABLE "property_documents_backup" AS 
+SELECT * FROM "property_documents";
 
 -- Vérifier que la sauvegarde est créée:
-SELECT COUNT(*) as "Documents sauvegardés" FROM "PropertyDocument_backup";
+SELECT COUNT(*) as "Documents sauvegardés" FROM "property_documents_backup";
 
 -- ============================================================================
 
 -- Étape 4: APPLIQUER LA CORRECTION
 -- (Exécutez cette requête après avoir vérifié les étapes précédentes)
-UPDATE "PropertyDocument"
+UPDATE "property_documents"
 SET "storageKey" = CASE 
     WHEN "storageKey" LIKE 'real-estate/%' THEN "storageKey"
     WHEN "storageKey" LIKE 'documents/%' THEN CONCAT('real-estate/', "storageKey")
@@ -58,7 +58,7 @@ SELECT
     COUNT(*) as "Total documents",
     COUNT(*) FILTER (WHERE "storageKey" LIKE 'real-estate/%') as "Corrects",
     COUNT(*) FILTER (WHERE "storageKey" NOT LIKE 'real-estate/%') as "Restants à corriger"
-FROM "PropertyDocument";
+FROM "property_documents";
 
 -- Si "Restants à corriger" = 0, c'est réussi! ✅
 
@@ -70,7 +70,7 @@ SELECT
     title,
     "storageKey",
     "originalName"
-FROM "PropertyDocument"
+FROM "property_documents"
 WHERE "storageKey" LIKE 'real-estate/documents/%'
 LIMIT 5;
 
@@ -79,7 +79,7 @@ LIMIT 5;
 -- ============================================================================
 
 -- Si quelque chose ne va pas, vous pouvez restaurer:
--- DROP TABLE "PropertyDocument";
--- ALTER TABLE "PropertyDocument_backup" RENAME TO "PropertyDocument";
+-- DROP TABLE "property_documents";
+-- ALTER TABLE "property_documents_backup" RENAME TO "property_documents";
 
 -- ============================================================================
