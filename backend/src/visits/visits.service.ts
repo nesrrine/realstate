@@ -140,27 +140,108 @@ export class VisitsService {
    * visitNumber : rang de la visite chez ce client (toutes agences/agents confondus) ;
    * clientVisitCount : nombre total de visites du client. Annulées et absences exclues.
    */
-  private async withVisitNumbers<T extends { id: string; clientId: string }>(visits: T[]) {
+  private async withVisitNumbers<
+    T extends {
+      id: string;
+      clientId: string;
+      scheduledAt: Date;
+      createdAt: Date;
+    },
+  >(visits: T[]) {
+    if (visits.length === 0) return [];
+
+    // 1) Rang de visite par client (visite / revisite).
     const clientIds = [...new Set(visits.map((v) => v.clientId))];
-    const all = clientIds.length
-      ? await this.prisma.visit.findMany({
-          where: { clientId: { in: clientIds }, status: { notIn: NOT_COUNTED } },
-          select: { id: true, clientId: true },
-          orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
-        })
-      : [];
-    const rank = new Map<string, number>();
-    const count = new Map<string, number>();
-    for (const v of all) {
-      const n = (count.get(v.clientId) ?? 0) + 1;
-      count.set(v.clientId, n);
-      rank.set(v.id, n);
+    const clientVisits = await this.prisma.visit.findMany({
+      where: {
+        clientId: { in: clientIds },
+        status: { notIn: NOT_COUNTED },
+      },
+      select: { id: true, clientId: true },
+      orderBy: [
+        { scheduledAt: "asc" },
+        { createdAt: "asc" },
+        { id: "asc" },
+      ],
+    });
+
+    const clientRank = new Map<string, number>();
+    const clientCount = new Map<string, number>();
+
+    for (const item of clientVisits) {
+      const number = (clientCount.get(item.clientId) ?? 0) + 1;
+      clientCount.set(item.clientId, number);
+      clientRank.set(item.id, number);
     }
-    return visits.map((v) => ({
-      ...v,
-      visitNumber: rank.get(v.id) ?? null,
-      clientVisitCount: count.get(v.clientId) ?? 0,
+
+    // 2) Déterminer les mois des visites selon l'heure locale de Tunis.
+    const getMonthInfo = (date: Date) => {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Africa/Tunis",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(date);
+
+      const year = Number(parts.find((part) => part.type === "year")?.value);
+      const month = Number(parts.find((part) => part.type === "month")?.value);
+
+      return { year, month, key: `${year}-${String(month).padStart(2, "0")}` };
+    };
+
+    const months = new Map<string, { year: number; month: number }>();
+
+    for (const visit of visits) {
+      const info = getMonthInfo(visit.scheduledAt);
+      months.set(info.key, { year: info.year, month: info.month });
+    }
+
+    // La Tunisie est en UTC+1. Les bornes sont donc converties en UTC.
+    const monthRanges = [...months.values()].map(({ year, month }) => ({
+      scheduledAt: {
+        gte: new Date(Date.UTC(year, month - 1, 1) - 60 * 60 * 1000),
+        lt: new Date(Date.UTC(year, month, 1) - 60 * 60 * 1000),
+      },
     }));
+
+    // 3) Toutes les visites des mois concernés, tous agents confondus.
+    const monthlyVisits = await this.prisma.visit.findMany({
+      where: {
+        status: { notIn: NOT_COUNTED },
+        OR: monthRanges,
+      },
+      select: { id: true, scheduledAt: true, createdAt: true },
+      orderBy: [
+        { scheduledAt: "asc" },
+        { createdAt: "asc" },
+        { id: "asc" },
+      ],
+    });
+
+    // 4) Numéro séquentiel global par mois.
+    const monthlyRank = new Map<string, number>();
+    const monthlyCounters = new Map<string, number>();
+
+    for (const visit of monthlyVisits) {
+      const info = getMonthInfo(visit.scheduledAt);
+      const number = (monthlyCounters.get(info.key) ?? 0) + 1;
+      monthlyCounters.set(info.key, number);
+      monthlyRank.set(visit.id, number);
+    }
+
+    // 5) Réponse enrichie.
+    return visits.map((visit) => {
+      const info = getMonthInfo(visit.scheduledAt);
+      const number = monthlyRank.get(visit.id);
+
+      return {
+        ...visit,
+        visitNumber: clientRank.get(visit.id) ?? null,
+        clientVisitCount: clientCount.get(visit.clientId) ?? 0,
+        visitReference: number
+          ? `VIS-${String(info.month).padStart(2, "0")}-${String(number).padStart(3, "0")}-${info.year}`
+          : null,
+      };
+    });
   }
 
   /** Nombre de visites d'un client : sert au formulaire pour annoncer « visite » ou « revisite n° X ». */
@@ -219,7 +300,8 @@ export class VisitsService {
       link: `/crm/visits/${visit.id}`,
     });
 
-    return visit;
+    const [numberedVisit] = await this.withVisitNumbers([visit]);
+    return numberedVisit;
   }
 
   async update(id: string, dto: UpdateVisitDto, user: any) {
@@ -355,7 +437,8 @@ export class VisitsService {
       });
     }
 
-    return updatedVisit;
+    const [numberedVisit] = await this.withVisitNumbers([updatedVisit]);
+    return numberedVisit;
   }
 
   async remove(id: string, user: any) {

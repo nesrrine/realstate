@@ -1,4 +1,5 @@
- "use client";
+
+"use client";
 
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ import { createPortal } from "react-dom";
 /* ------------------------------------------------------------------ */
 /* Constantes agence                                                   */
 /* ------------------------------------------------------------------ */
+
 const AGENCY = {
   name: "Le Portail Immobilier",
   branch: "Le Portail Immobilier - Aouina",
@@ -29,23 +31,34 @@ type Lang = "fr" | "ar";
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
+
 const clean = (value: unknown): string =>
   value === null || value === undefined ? "" : String(value).trim();
 
 const formatLongDate = (date: Date, lang: Lang) =>
-  date.toLocaleDateString(lang === "ar" ? "ar-TN-u-nu-latn" : "fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  date.toLocaleDateString(
+    lang === "ar" ? "ar-TN-u-nu-latn" : "fr-FR",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }
+  );
 
-function Val({ v, dots = 34 }: { v: string; dots?: number }) {
+function Val({
+  v,
+  dots = 34,
+}: {
+  v: string;
+  dots?: number;
+}) {
   return <span>{v || ".".repeat(dots)}</span>;
 }
 
 /* ------------------------------------------------------------------ */
 /* Textes                                                              */
 /* ------------------------------------------------------------------ */
+
 const TEXT = {
   fr: {
     title: "Accord préliminaire d'achat",
@@ -61,10 +74,13 @@ const TEXT = {
     approved: "Lu et approuvé, bon pour accord",
     agencyLeft: "Agence immobilière",
     tagline: "Vente · Achat · Location",
+    visitReference: "Référence visite",
+    propertyReference: "Référence bien",
   },
+
   ar: {
     title: "إتفاق مبدئي للشراء",
-    visit: "Visite",
+    visit: "زيارة",
     identity: "بيانات الممضي",
     dateLieu: "التاريخ والمكان",
     nom: "الاسم واللقب",
@@ -76,25 +92,42 @@ const TEXT = {
     approved: "أطلعت و وقعت عليه",
     agencyLeft: "Agence immobilière",
     tagline: "Vente · Achat · Location",
+    visitReference: "مرجع الزيارة",
+    propertyReference: "مرجع العقار",
   },
 };
 
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
+
 type VisitData = {
   id: string;
-  scheduledAt?: string | Date;
-  createdAt?: string | Date;
+
+  scheduledAt?: string | Date | null;
+  createdAt?: string | Date | null;
+
+  // Références de la visite
+  visitNumber?: number | null;
+  visitReference?: string | null;
+  clientVisitCount?: number;
+
   client?: {
     id?: string;
+
     firstName?: string | null;
     lastName?: string | null;
+
     cinOrPassport?: string | null;
     phone?: string | null;
     email?: string | null;
+
     address?: string | null;
     city?: string | null;
     zipCode?: string | null;
     professionalAddress?: string | null;
   };
+
   properties?: Array<{
     property?: {
       title?: string | null;
@@ -103,6 +136,7 @@ type VisitData = {
       ref?: string | null;
       code?: string | null;
     };
+
     title?: string | null;
     city?: string | null;
     reference?: string | null;
@@ -111,9 +145,16 @@ type VisitData = {
   }>;
 };
 
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+
 export default function BonDeVisitePage() {
   const params = useParams();
-  const visitId = params.id as string;
+
+  const visitId = Array.isArray(params.id)
+    ? params.id[0]
+    : params.id;
 
   const [lang, setLang] = useState<Lang>("fr");
   const [mounted, setMounted] = useState(false);
@@ -122,20 +163,30 @@ export default function BonDeVisitePage() {
     setMounted(true);
   }, []);
 
+  /* ---------------------------------------------------------------- */
+  /* Récupération de la visite                                        */
+  /* ---------------------------------------------------------------- */
+
   const {
     data: visit,
     isLoading,
     isError,
   } = useQuery({
     queryKey: ["visit", visitId],
-    queryFn: () => visitsService.getById(visitId),
+    queryFn: () => visitsService.getById(visitId as string),
     enabled: !!visitId,
   });
+
+  /* ---------------------------------------------------------------- */
+  /* Chargement                                                        */
+  /* ---------------------------------------------------------------- */
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Préparation du bon de visite…</p>
+        <p className="text-muted-foreground">
+          Préparation du bon de visite…
+        </p>
       </div>
     );
   }
@@ -144,51 +195,104 @@ export default function BonDeVisitePage() {
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="text-center">
-          <p className="text-destructive">Visite introuvable ou impossible à charger.</p>
-          <Link href="/crm/visits">
-            <button className="mt-4 rounded bg-primary px-4 py-2 text-white">
-              Retour aux visites
-            </button>
+          <p className="text-destructive">
+            Visite introuvable ou impossible à charger.
+          </p>
+
+          <Link
+            href="/crm/visits"
+            className="mt-4 inline-block rounded bg-primary px-4 py-2 text-white"
+          >
+            Retour aux visites
           </Link>
         </div>
       </div>
     );
   }
 
+  /* ---------------------------------------------------------------- */
+  /* Données                                                           */
+  /* ---------------------------------------------------------------- */
+
   const v = visit as VisitData;
+
   const client = v.client ?? {};
   const properties = v.properties ?? [];
 
-  // Identité du client récupérée depuis la relation visit.client.
-  const fullName = [clean(client.firstName), clean(client.lastName)]
+  // Identité du client
+  const fullName = [
+    clean(client.firstName),
+    clean(client.lastName),
+  ]
     .filter(Boolean)
     .join(" ");
 
   const cinOrPassport = clean(client.cinOrPassport);
-
-  // Adresse personnelle complète : adresse + ville + code postal.
-const address = [
-  clean(client.address),
-  clean(client.city),
-  clean(client.zipCode),
-].filter(Boolean).join(", ");
-
-  // Si l'adresse personnelle est vide, utiliser l'adresse professionnelle.
-
   const phone = clean(client.phone);
 
-  const dateValue = v.scheduledAt ?? v.createdAt ?? new Date();
-  const docDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
-  const safeDate = Number.isNaN(docDate.getTime()) ? new Date() : docDate;
+  /* ---------------------------------------------------------------- */
+  /* Adresse automatique                                               */
+  /* ---------------------------------------------------------------- */
+
+  const personalAddress = [
+    clean(client.address),
+    clean(client.city),
+    clean(client.zipCode),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  // Si l'adresse personnelle est vide,
+  // utiliser l'adresse professionnelle.
+
+  const address =
+    personalAddress ||
+    clean(client.professionalAddress) ||
+    "Non renseignée";
+
+  /* ---------------------------------------------------------------- */
+  /* Référence automatique de la visite                               */
+  /* ---------------------------------------------------------------- */
+
+  // Cette référence doit être fournie par le backend.
+  // Format : VIS-MM-NNN-YYYY
+
+  const visitReference =
+    clean(v.visitReference) || "Non disponible";
+
+  /* ---------------------------------------------------------------- */
+  /* Date                                                              */
+  /* ---------------------------------------------------------------- */
+
+  const dateValue =
+    v.scheduledAt ?? v.createdAt ?? new Date();
+
+  const docDate =
+    dateValue instanceof Date
+      ? dateValue
+      : new Date(dateValue);
+
+  const safeDate = Number.isNaN(docDate.getTime())
+    ? new Date()
+    : docDate;
+
   const dateStr = formatLongDate(safeDate, lang);
 
-  // Biens : Titre — Ville — Référence.
+  /* ---------------------------------------------------------------- */
+  /* Biens immobiliers                                                 */
+  /* ---------------------------------------------------------------- */
+
   const propertyLines = properties.map((item) => {
     const property = item.property ?? item;
+
     return [
       clean(property.title),
       clean(property.city),
-      clean(property.reference ?? property.ref ?? property.code),
+      clean(
+        property.reference ??
+        property.ref ??
+        property.code
+      ),
     ]
       .filter(Boolean)
       .join(" — ");
@@ -197,13 +301,26 @@ const address = [
   const refs = properties
     .map((item) => {
       const property = item.property ?? item;
-      return clean(property.reference ?? property.ref ?? property.code);
+
+      return clean(
+        property.reference ??
+        property.ref ??
+        property.code
+      );
     })
     .filter(Boolean)
     .join(", ");
 
+  /* ---------------------------------------------------------------- */
+  /* Langue                                                            */
+  /* ---------------------------------------------------------------- */
+
   const t = TEXT[lang];
   const rtl = lang === "ar";
+
+  /* ---------------------------------------------------------------- */
+  /* Composant ligne                                                   */
+  /* ---------------------------------------------------------------- */
 
   const Row = ({
     label,
@@ -219,6 +336,10 @@ const address = [
     </div>
   );
 
+  /* ---------------------------------------------------------------- */
+  /* Document A4                                                       */
+  /* ---------------------------------------------------------------- */
+
   const renderSheet = (forPrint: boolean) => (
     <div
       dir={rtl ? "rtl" : "ltr"}
@@ -228,17 +349,25 @@ const address = [
           : "min-h-[285mm] w-full max-w-[210mm] shadow"
       }`}
     >
-      {/* En-tête */}
-      <div dir="ltr" className="flex items-start justify-between">
+      {/* ---------------------------------------------------------- */}
+      {/* En-tête                                                     */}
+      {/* ---------------------------------------------------------- */}
+
+      <div
+        dir="ltr"
+        className="flex items-start justify-between"
+      >
         <div className="w-[36%] text-[9pt] leading-[1.55] text-gray-600">
           <div className="mb-0.5 text-[12pt] font-bold text-[#111]">
             {AGENCY.name}
           </div>
+
           <div>{t.agencyLeft}</div>
           <div>{AGENCY.branch}</div>
           <div>{t.tagline}</div>
         </div>
 
+        {/* Logo */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={LOGO_SRC}
@@ -253,6 +382,7 @@ const address = [
           <div className="mb-0.5 text-[12pt] font-bold text-[#111]">
             {AGENCY.name}
           </div>
+
           {rtl ? (
             <>
               <div>وكالة عقارية</div>
@@ -268,19 +398,45 @@ const address = [
         </div>
       </div>
 
-      {/* Titre */}
+      {/* ---------------------------------------------------------- */}
+      {/* Titre                                                       */}
+      {/* ---------------------------------------------------------- */}
+
       <h1 className="mb-1 mt-[12mm] text-center text-[21pt] font-bold">
         {t.title}
       </h1>
 
-      <div dir="ltr" className="text-center">
-        REF : <Val v={refs} dots={18} />
+      {/* Références */}
+
+      <div
+        dir="ltr"
+        className="my-2 space-y-1 text-center text-[10pt]"
+      >
+        <div>
+          <strong>{t.visitReference} :</strong>{" "}
+          <span className="font-bold">
+            {visitReference}
+          </span>
+        </div>
+
+        <div>
+          <strong>{t.propertyReference} :</strong>{" "}
+          <Val v={refs} dots={18} />
+        </div>
       </div>
 
-      <div className="mb-[5mm] text-center font-bold">{t.visit}</div>
+      <div className="mb-[5mm] text-center font-bold">
+        {t.visit}
+      </div>
 
-      {/* Identité */}
-      <div className="mb-[3mm] font-bold">{t.identity}</div>
+      {/* ---------------------------------------------------------- */}
+      {/* Identité du client                                          */}
+      {/* ---------------------------------------------------------- */}
+
+      <div className="mb-[3mm] font-bold">
+        {t.identity}
+      </div>
+
       <Row
         label={t.dateLieu}
         value={
@@ -289,44 +445,90 @@ const address = [
             : `${CITY_FR}, le ${dateStr}`
         }
       />
-      <Row label={t.nom} value={fullName} />
-      <Row label={t.cin} value={cinOrPassport} dots={26} />
-      <Row label={t.adresse} value={address} />
-      <Row label={t.tel} value={phone} dots={26} />
+
+      <Row
+        label={t.nom}
+        value={fullName}
+      />
+
+      <Row
+        label={t.cin}
+        value={cinOrPassport}
+        dots={26}
+      />
+
+      <Row
+        label={t.adresse}
+        value={address}
+      />
+
+      <Row
+        label={t.tel}
+        value={phone}
+        dots={26}
+      />
 
       <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
 
-      {/* Engagement 1 */}
-      <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
+      {/* ---------------------------------------------------------- */}
+      {/* Engagement 1                                                */}
+      {/* ---------------------------------------------------------- */}
+
+      <p
+        className={`mb-[3mm] ${
+          rtl ? "text-right" : "text-justify"
+        }`}
+      >
         {rtl ? (
           <>
             أتعهد بأنني أتعامل مع شركة{" "}
-            <bdi className="font-bold">{AGENCY.name}</bdi> عبر وكالتها{" "}
-            <bdi className="font-bold">{AGENCY.branch}</bdi> الكائنة في{" "}
-            <bdi className="font-bold">{AGENCY.address}</bdi>، وذلك بهدف
-            التوسط في شراء العقار أو العقارات المذكورة أدناه، بعد الاطلاع
-            الميداني عليها.
+            <bdi className="font-bold">
+              {AGENCY.name}
+            </bdi>{" "}
+            عبر وكالتها{" "}
+            <bdi className="font-bold">
+              {AGENCY.branch}
+            </bdi>{" "}
+            الكائنة في{" "}
+            <bdi className="font-bold">
+              {AGENCY.address}
+            </bdi>
+            ، وذلك بهدف التوسط في شراء العقار أو العقارات
+            المذكورة أدناه، بعد الاطلاع الميداني عليها.
           </>
         ) : (
           <>
-            Je m&apos;engage à traiter avec la société <b>{AGENCY.name}</b> par
-            l&apos;intermédiaire de son agence <b>{AGENCY.branch}</b> située à{" "}
-            <b>{AGENCY.address}</b>, dans le but de négocier l&apos;achat du ou
-            des biens immobiliers mentionnés ci-dessous, après visite sur place.
+            Je m&apos;engage à traiter avec la société{" "}
+            <b>{AGENCY.name}</b> par l&apos;intermédiaire de
+            son agence <b>{AGENCY.branch}</b> située à{" "}
+            <b>{AGENCY.address}</b>, dans le but de négocier
+            l&apos;achat du ou des biens immobiliers
+            mentionnés ci-dessous, après visite sur place.
           </>
         )}
       </p>
 
-      <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
+      <p
+        className={`mb-[3mm] ${
+          rtl ? "text-right" : "text-justify"
+        }`}
+      >
         {rtl
           ? "كما أصرح بأني سأقوم بزيارة ميدانية للعقار المذكور الذي تحت تصرف الوكالة قصد شراءه:"
           : "Je déclare également effectuer une visite sur place du bien mentionné, placé sous la responsabilité de l'agence, en vue de son achat :"}
       </p>
 
-      {/* Bien(s) */}
+      {/* ---------------------------------------------------------- */}
+      {/* Biens immobiliers                                           */}
+      {/* ---------------------------------------------------------- */}
+
       <div className="mb-[4mm] min-h-[11mm] rounded border border-[#111] px-[4mm] py-[2.5mm]">
         {propertyLines.length > 0 ? (
-          propertyLines.map((line, index) => <div key={index}>{line}</div>)
+          propertyLines.map((line, index) => (
+            <div key={index}>
+              {line || "Bien immobilier"}
+            </div>
+          ))
         ) : (
           <div>{".".repeat(30)}</div>
         )}
@@ -334,86 +536,123 @@ const address = [
 
       <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
 
-      {/* Engagement 2 */}
-      <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
+      {/* ---------------------------------------------------------- */}
+      {/* Engagement 2                                                */}
+      {/* ---------------------------------------------------------- */}
+
+      <p
+        className={`mb-[3mm] ${
+          rtl ? "text-right" : "text-justify"
+        }`}
+      >
         {rtl ? (
           <>
-            كما أني أتعهد بعدم محاولة التعامل بشكل مباشر أو غير مباشر مع
-            المالك مدة <b>24 شهر</b> من هذا اليوم وإلا أكون قد خالفت عمولة
-            الوكالة المقدرة بـ <b>2٪</b> من كامل المبلغ المحرر في العقد النهائي
+            كما أني أتعهد بعدم محاولة التعامل بشكل مباشر أو
+            غير مباشر مع المالك مدة <b>24 شهر</b> من هذا اليوم
+            وإلا أكون قد خالفت عمولة الوكالة المقدرة بـ{" "}
+            <b>2٪</b> من كامل المبلغ المحرر في العقد النهائي
             (أو عقد الوعد بالبيع أو عقد بيع نهائي).
           </>
         ) : (
           <>
-            Je m&apos;engage à ne pas tenter de traiter directement ou
-            indirectement avec le propriétaire pendant une durée{" "}
-            <b>de 24 mois</b> à compter de ce jour, faute de quoi j&apos;aurais
-            violé la commission de l&apos;agence fixée à <b>2 %</b> du montant
-            total inscrit dans le contrat définitif (promesse de vente ou acte
-            de vente définitif).
+            Je m&apos;engage à ne pas tenter de traiter
+            directement ou indirectement avec le propriétaire
+            pendant une durée <b>de 24 mois</b> à compter de
+            ce jour, faute de quoi j&apos;aurais violé la
+            commission de l&apos;agence fixée à <b>2 %</b> du
+            montant total inscrit dans le contrat définitif
+            (promesse de vente ou acte de vente définitif).
           </>
         )}
       </p>
 
       <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
 
-      {/* Signature */}
+      {/* ---------------------------------------------------------- */}
+      {/* Signature                                                   */}
+      {/* ---------------------------------------------------------- */}
+
       <div className="flex justify-between">
         <span>{t.signature}</span>
+
         <span>
           {t.faitLe} {dateStr}
         </span>
       </div>
 
       <div>{t.approved}</div>
+
       <div className="h-[22mm]" />
 
-      {/* Pied de page */}
+      {/* ---------------------------------------------------------- */}
+      {/* Pied de page                                                */}
+      {/* ---------------------------------------------------------- */}
+
       <div
         dir="ltr"
         className="mt-auto border-t border-gray-300 pt-[3mm] text-center text-[8.8pt] leading-[1.7] text-gray-700"
       >
         <div>
-          MF{rtl ? "" : " "}: {AGENCY.mf} · {AGENCY.phones.join(" · ")}
+          MF{rtl ? "" : " "}: {AGENCY.mf} ·{" "}
+          {AGENCY.phones.join(" · ")}
         </div>
-        <div>Email{rtl ? "" : " "}: {AGENCY.email}</div>
+
+        <div>
+          Email{rtl ? "" : " "}: {AGENCY.email}
+        </div>
+
         <div>{AGENCY.address}</div>
       </div>
     </div>
   );
 
+  /* ---------------------------------------------------------------- */
+  /* Interface                                                        */
+  /* ---------------------------------------------------------------- */
+
   return (
     <>
       {/* Aperçu écran */}
+
       <div className="mx-auto max-w-[210mm] bg-white p-10 print:hidden">
         <div className="mb-6 flex items-center justify-between print:hidden">
-          <Link href={`/crm/visits/${v.id}`}>
-            <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-              ← Retour à la visite
-            </button>
+          <Link
+            href={`/crm/visits/${v.id}`}
+            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Retour à la visite
           </Link>
 
           <div className="flex items-center gap-2">
+            {/* Langues */}
+
             <div className="flex overflow-hidden rounded border text-sm">
               <button
                 type="button"
                 onClick={() => setLang("fr")}
                 className={`px-3 py-2 ${
-                  lang === "fr" ? "bg-primary text-white" : "bg-white"
+                  lang === "fr"
+                    ? "bg-primary text-white"
+                    : "bg-white"
                 }`}
               >
                 Français
               </button>
+
               <button
                 type="button"
                 onClick={() => setLang("ar")}
                 className={`px-3 py-2 ${
-                  lang === "ar" ? "bg-primary text-white" : "bg-white"
+                  lang === "ar"
+                    ? "bg-primary text-white"
+                    : "bg-white"
                 }`}
               >
                 العربية
               </button>
             </div>
+
+            {/* Impression */}
 
             <button
               type="button"
@@ -430,11 +669,18 @@ const address = [
       </div>
 
       {/* Feuille imprimée */}
+
       {mounted &&
         createPortal(
-          <div id="print-root">{renderSheet(true)}</div>,
+          <div id="print-root">
+            {renderSheet(true)}
+          </div>,
           document.body
         )}
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Styles impression                                                 */}
+      {/* ---------------------------------------------------------------- */}
 
       <style jsx global>{`
         #print-root {
