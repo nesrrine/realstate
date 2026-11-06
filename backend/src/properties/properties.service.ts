@@ -20,6 +20,7 @@ import { STORAGE_SERVICE, IStorageService } from "../storage/storage.interface";
 const PROPERTY_SELECT = {
   id: true,
   reference: true,
+  titleDeedNumber: true,
   title: true,
   description: true,
   type: true,

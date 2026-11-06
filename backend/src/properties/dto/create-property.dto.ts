@@ -28,8 +28,14 @@ export class CreatePropertyDto {
   @MaxLength(32)
   @Matches(/^REF-\d{4}-\d{5}$/, { message: 'La référence doit être au format REF-YYYY-NNNNN' })
   reference?: string;
-  titleDeedNumber?: string;
-
+@ApiPropertyOptional({
+  example: "TF-123456",
+  description: "Numéro du titre foncier",
+})
+@IsOptional()
+@IsString()
+@MaxLength(100)
+titleDeedNumber?: string;
   @ApiProperty({ example: "Beau T3 lumineux - Paris 11e" })
   @IsString()
   @IsNotEmpty()
