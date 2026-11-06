@@ -10,7 +10,19 @@ import { agencyDayRange, agencyMonthStart, agencyToday } from "../common/utils/a
 
 const VISIT_INCLUDE = {
   // FIX: email ajouté (la page détail affiche visit.client.email)
-  client: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
+  client: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      cinOrPassport: true,
+      phone: true,
+      email: true,
+      address: true,
+      city: true,
+      zipCode: true,
+    },
+  },
   properties: { include: { property: { select: { id: true, title: true, address: true, city: true } } } },
   fieldAgent: { include: { user: { select: { firstName: true, lastName: true } } } },
   officeAgent: { include: { user: { select: { firstName: true, lastName: true } } } },

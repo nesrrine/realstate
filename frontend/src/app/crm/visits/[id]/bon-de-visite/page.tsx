@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 /* ------------------------------------------------------------------ */
-/* Constantes agence (à modifier ici si besoin)                        */
+/* Constantes agence                                                   */
 /* ------------------------------------------------------------------ */
 const AGENCY = {
   name: "Le Portail Immobilier",
@@ -19,7 +19,8 @@ const AGENCY = {
   phones: ["+21622009309", "+21622009302"],
   email: "contact@leportailimmo.com",
 };
-const LOGO_SRC = "/logo-portail-immobilier.png"; // à placer dans /public
+
+const LOGO_SRC = "/logo-portail-immobilier.png";
 const CITY_FR = "Tunis";
 const CITY_AR = "تونس";
 
@@ -28,16 +29,16 @@ type Lang = "fr" | "ar";
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
-const clean = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim());
+const clean = (value: unknown): string =>
+  value === null || value === undefined ? "" : String(value).trim();
 
-const formatLongDate = (d: Date, lang: Lang) =>
-  d.toLocaleDateString(lang === "ar" ? "ar-TN-u-nu-latn" : "fr-FR", {
+const formatLongDate = (date: Date, lang: Lang) =>
+  date.toLocaleDateString(lang === "ar" ? "ar-TN-u-nu-latn" : "fr-FR", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
-/** Affiche la valeur, ou une ligne pointillée si elle est vide (à remplir à la main). */
 function Val({ v, dots = 34 }: { v: string; dots?: number }) {
   return <span>{v || ".".repeat(dots)}</span>;
 }
@@ -78,15 +79,54 @@ const TEXT = {
   },
 };
 
+type VisitData = {
+  id: string;
+  scheduledAt?: string | Date;
+  createdAt?: string | Date;
+  client?: {
+    id?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    cinOrPassport?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    address?: string | null;
+    city?: string | null;
+    zipCode?: string | null;
+    professionalAddress?: string | null;
+  };
+  properties?: Array<{
+    property?: {
+      title?: string | null;
+      city?: string | null;
+      reference?: string | null;
+      ref?: string | null;
+      code?: string | null;
+    };
+    title?: string | null;
+    city?: string | null;
+    reference?: string | null;
+    ref?: string | null;
+    code?: string | null;
+  }>;
+};
+
 export default function BonDeVisitePage() {
   const params = useParams();
   const visitId = params.id as string;
+
   const [lang, setLang] = useState<Lang>("fr");
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const { data: visit, isLoading } = useQuery({
+  const {
+    data: visit,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["visit", visitId],
     queryFn: () => visitsService.getById(visitId),
     enabled: !!visitId,
@@ -94,285 +134,330 @@ export default function BonDeVisitePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Préparation du bon de visite…</p>
       </div>
     );
   }
 
-  if (!visit) {
+  if (isError || !visit) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-6">
+      <div className="flex min-h-screen items-center justify-center p-6">
         <div className="text-center">
-          <p className="text-destructive">Visite introuvable.</p>
+          <p className="text-destructive">Visite introuvable ou impossible à charger.</p>
           <Link href="/crm/visits">
-            <button className="mt-4 px-4 py-2 bg-primary text-white rounded">Retour aux visites</button>
+            <button className="mt-4 rounded bg-primary px-4 py-2 text-white">
+              Retour aux visites
+            </button>
           </Link>
         </div>
       </div>
     );
   }
 
-  /* ---------------- Données ---------------- */
-  const v = visit as {
-    id: string;
-    scheduledAt?: string | Date;
-    createdAt?: string | Date;
-    client?: {
-      firstName?: string;
-      lastName?: string;
-      cinOrPassport?: string;
-      cin?: string;
-      passport?: string;
-      address?: string;
-      city?: string;
-      zipCode?: string;
-      phone?: string;
-    };
-    properties?: Array<{
-      property?: {
-        title?: string;
-        city?: string;
-        reference?: string;
-        ref?: string;
-        code?: string;
-      };
-      title?: string;
-      city?: string;
-      reference?: string;
-      ref?: string;
-      code?: string;
-    }>;
-  };
+  const v = visit as VisitData;
   const client = v.client ?? {};
   const properties = v.properties ?? [];
 
-  const fullName = [clean(client.firstName), clean(client.lastName)].filter(Boolean).join(" ");
-  // ⚠️ Adapter le nom du champ CIN/passeport à votre modèle Client
-  const cinOrPassport = clean(client.cinOrPassport ?? client.cin ?? client.passport);
-  const address = [clean(client.address), clean(client.city), clean(client.zipCode)].filter(Boolean).join(", ");
+  // Identité du client récupérée depuis la relation visit.client.
+  const fullName = [clean(client.firstName), clean(client.lastName)]
+    .filter(Boolean)
+    .join(" ");
+
+  const cinOrPassport = clean(client.cinOrPassport);
+
+  // Adresse personnelle complète : adresse + ville + code postal.
+  const personalAddress = [
+    clean(client.address),
+    clean(client.city),
+    clean(client.zipCode),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  // Si l'adresse personnelle est vide, utiliser l'adresse professionnelle.
+  const address = personalAddress || clean(client.professionalAddress);
+
   const phone = clean(client.phone);
 
-  const docDate = new Date(
-    (typeof v.scheduledAt === 'string' || typeof v.scheduledAt === 'number' ? v.scheduledAt : null) ??
-    (typeof v.createdAt === 'string' || typeof v.createdAt === 'number' ? v.createdAt : null) ??
-    Date.now()
-  );
-  const dateStr = formatLongDate(docDate, lang);
+  const dateValue = v.scheduledAt ?? v.createdAt ?? new Date();
+  const docDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  const safeDate = Number.isNaN(docDate.getTime()) ? new Date() : docDate;
+  const dateStr = formatLongDate(safeDate, lang);
 
-  // Biens : "Titre — Ville — Réf"
-  const propertyLines: string[] = properties.map((p) => {
-    const prop = p.property ?? p;
-    return [clean(prop.title), clean(prop.city), clean(prop.reference ?? prop.ref ?? prop.code)]
+  // Biens : Titre — Ville — Référence.
+  const propertyLines = properties.map((item) => {
+    const property = item.property ?? item;
+    return [
+      clean(property.title),
+      clean(property.city),
+      clean(property.reference ?? property.ref ?? property.code),
+    ]
       .filter(Boolean)
       .join(" — ");
   });
+
   const refs = properties
-    .map((p) => clean((p.property ?? p).reference ?? (p.property ?? p).ref ?? (p.property ?? p).code))
+    .map((item) => {
+      const property = item.property ?? item;
+      return clean(property.reference ?? property.ref ?? property.code);
+    })
     .filter(Boolean)
     .join(", ");
 
   const t = TEXT[lang];
   const rtl = lang === "ar";
 
-  const Row = ({ label, value, dots }: { label: string; value: string; dots?: number }) => (
-    <div>
+  const Row = ({
+    label,
+    value,
+    dots,
+  }: {
+    label: string;
+    value: string;
+    dots?: number;
+  }) => (
+    <div className="break-words">
       {label} : <Val v={value} dots={dots} />
     </div>
   );
 
   const renderSheet = (forPrint: boolean) => (
-    <>
-      {/* ---------------- Feuille A4 ---------------- */}
-      <div
-        dir={rtl ? "rtl" : "ltr"}
-        className={`mx-auto flex flex-col bg-white px-[19mm] pb-[12mm] pt-[16mm] text-[10.5pt] leading-[1.6] text-[#111] ${forPrint ? "h-[296mm] w-[210mm] overflow-hidden" : "min-h-[285mm] w-full max-w-[210mm] shadow"}`}
-      >
-        {/* En-tête */}
-        <div dir="ltr" className="flex items-start justify-between">
-          <div className="w-[36%] text-[9pt] leading-[1.55] text-gray-600">
-            <div className="mb-0.5 text-[12pt] font-bold text-[#111]">{AGENCY.name}</div>
-            <div>{t.agencyLeft}</div>
-            <div>{AGENCY.branch}</div>
-            <div>{t.tagline}</div>
+    <div
+      dir={rtl ? "rtl" : "ltr"}
+      className={`mx-auto flex flex-col bg-white px-[19mm] pb-[12mm] pt-[16mm] text-[10.5pt] leading-[1.6] text-[#111] ${
+        forPrint
+          ? "h-[296mm] w-[210mm] overflow-hidden"
+          : "min-h-[285mm] w-full max-w-[210mm] shadow"
+      }`}
+    >
+      {/* En-tête */}
+      <div dir="ltr" className="flex items-start justify-between">
+        <div className="w-[36%] text-[9pt] leading-[1.55] text-gray-600">
+          <div className="mb-0.5 text-[12pt] font-bold text-[#111]">
+            {AGENCY.name}
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={LOGO_SRC}
-            alt={AGENCY.name}
-            className="h-[24mm] w-[24mm] object-contain"
-          />
-          <div
-            dir={rtl ? "rtl" : "ltr"}
-            className="w-[36%] text-right text-[9pt] leading-[1.55] text-gray-600"
-          >
-            <div className="mb-0.5 text-[12pt] font-bold text-[#111]">{AGENCY.name}</div>
-            {rtl ? (
-              <>
-                <div>وكالة عقارية</div>
-                <div dir="ltr">{AGENCY.branch}</div>
-                <div>بيع · شراء · كراء</div>
-              </>
-            ) : (
-              <>
-                <div>{AGENCY.branch}</div>
-                <div>{AGENCY.address}</div>
-              </>
-            )}
-          </div>
+          <div>{t.agencyLeft}</div>
+          <div>{AGENCY.branch}</div>
+          <div>{t.tagline}</div>
         </div>
 
-        {/* Titre */}
-        <h1 className="mb-1 mt-[12mm] text-center text-[21pt] font-bold">{t.title}</h1>
-        <div dir="ltr" className="text-center">
-          REF : <Val v={refs} dots={18} />
-        </div>
-        <div className="mb-[5mm] text-center font-bold">{t.visit}</div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={LOGO_SRC}
+          alt={AGENCY.name}
+          className="h-[24mm] w-[24mm] object-contain"
+        />
 
-        {/* Identité */}
-        <div className="mb-[3mm] font-bold">{t.identity}</div>
-        <Row label={t.dateLieu} value={rtl ? `${CITY_AR} في ${dateStr}` : `${CITY_FR}, le ${dateStr}`} />
-        <Row label={t.nom} value={fullName} />
-        <Row label={t.cin} value={cinOrPassport} dots={26} />
-        <Row label={t.adresse} value={address} />
-        <Row label={t.tel} value={phone} dots={26} />
-
-        <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
-
-        {/* Engagement 1 */}
-        <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
-          {rtl ? (
-            <>
-              أتعهد بأنني أتعامل مع شركة <bdi className="font-bold">{AGENCY.name}</bdi> عبر وكالتها{" "}
-              <bdi className="font-bold">{AGENCY.branch}</bdi> الكائنة في{" "}
-              <bdi className="font-bold">{AGENCY.address}</bdi>، وذلك بهدف التوسط في شراء العقار أو العقارات
-              المذكورة أدناه، بعد الاطلاع الميداني عليها.
-            </>
-          ) : (
-            <>
-              Je m&apos;engage à traiter avec la société <b>{AGENCY.name}</b> par l&apos;intermédiaire de son agence{" "}
-              <b>{AGENCY.branch}</b> située à <b>{AGENCY.address}</b>, dans le but de négocier l&apos;achat du ou des
-              biens immobiliers mentionnés ci-dessous, après visite sur place.
-            </>
-          )}
-        </p>
-
-        <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
-          {rtl
-            ? "كما أصرح بأني سأقوم بزيارة ميدانية للعقار المذكور الذي تحت تصرف الوكالة قصد شراءه:"
-            : "Je déclare également effectuer une visite sur place du bien mentionné, placé sous la responsabilité de l&apos;agence, en vue de son achat :"}
-        </p>
-
-        {/* Bien(s) */}
-        <div className="mb-[4mm] min-h-[11mm] rounded border border-[#111] px-[4mm] py-[2.5mm]">
-          {propertyLines.map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
-        </div>
-
-        <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
-
-        {/* Engagement 2 */}
-        <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
-          {rtl ? (
-            <>
-              كما أني أتعهد بعدم محاولة التعامل بشكل مباشر أو غير مباشر مع المالك مدة <b>24 شهر</b> من هذا اليوم و
-              إلا أكون قد خالفت عمولة الوكالة المقدرة بـ <b>2٪</b> من كامل المبلغ المحرر في العقد النهائي (أو عقد
-              الوعد بالبيع أو عقد بيع نهائي).
-            </>
-          ) : (
-            <>
-              Je m&apos;engage à ne pas tenter de traiter directement ou indirectement avec le propriétaire pendant une
-              durée de <b>24 mois</b> à compter de ce jour, faute de quoi j&apos;aurais violé la commission de l&apos;agence
-              fixée à <b>2 %</b> du montant total inscrit dans le contrat définitif (promesse de vente ou acte de
-              vente définitif).
-            </>
-          )}
-        </p>
-
-        <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
-
-        {/* Signature */}
-        <div className="flex justify-between">
-          <span>{t.signature}</span>
-          <span>
-            {t.faitLe} {dateStr}
-          </span>
-        </div>
-        <div>{t.approved}</div>
-        <div className="h-[22mm]" />
-
-        {/* Pied de page */}
         <div
-          dir="ltr"
-          className="mt-auto border-t border-gray-300 pt-[3mm] text-center text-[8.8pt] leading-[1.7] text-gray-700"
+          dir={rtl ? "rtl" : "ltr"}
+          className="w-[36%] text-right text-[9pt] leading-[1.55] text-gray-600"
         >
-          <div>
-            MF{rtl ? "" : " "}: {AGENCY.mf} · {AGENCY.phones.join(" · ")}
+          <div className="mb-0.5 text-[12pt] font-bold text-[#111]">
+            {AGENCY.name}
           </div>
-          <div>Email{rtl ? "" : " "}: {AGENCY.email}</div>
-          <div>{AGENCY.address}</div>
+          {rtl ? (
+            <>
+              <div>وكالة عقارية</div>
+              <div dir="ltr">{AGENCY.branch}</div>
+              <div>بيع · شراء · كراء</div>
+            </>
+          ) : (
+            <>
+              <div>{AGENCY.branch}</div>
+              <div>{AGENCY.address}</div>
+            </>
+          )}
         </div>
       </div>
 
-    </>
+      {/* Titre */}
+      <h1 className="mb-1 mt-[12mm] text-center text-[21pt] font-bold">
+        {t.title}
+      </h1>
+
+      <div dir="ltr" className="text-center">
+        REF : <Val v={refs} dots={18} />
+      </div>
+
+      <div className="mb-[5mm] text-center font-bold">{t.visit}</div>
+
+      {/* Identité */}
+      <div className="mb-[3mm] font-bold">{t.identity}</div>
+      <Row
+        label={t.dateLieu}
+        value={
+          rtl
+            ? `${CITY_AR} في ${dateStr}`
+            : `${CITY_FR}, le ${dateStr}`
+        }
+      />
+      <Row label={t.nom} value={fullName} />
+      <Row label={t.cin} value={cinOrPassport} dots={26} />
+      <Row label={t.adresse} value={address} />
+      <Row label={t.tel} value={phone} dots={26} />
+
+      <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
+
+      {/* Engagement 1 */}
+      <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
+        {rtl ? (
+          <>
+            أتعهد بأنني أتعامل مع شركة{" "}
+            <bdi className="font-bold">{AGENCY.name}</bdi> عبر وكالتها{" "}
+            <bdi className="font-bold">{AGENCY.branch}</bdi> الكائنة في{" "}
+            <bdi className="font-bold">{AGENCY.address}</bdi>، وذلك بهدف
+            التوسط في شراء العقار أو العقارات المذكورة أدناه، بعد الاطلاع
+            الميداني عليها.
+          </>
+        ) : (
+          <>
+            Je m&apos;engage à traiter avec la société <b>{AGENCY.name}</b> par
+            l&apos;intermédiaire de son agence <b>{AGENCY.branch}</b> située à{" "}
+            <b>{AGENCY.address}</b>, dans le but de négocier l&apos;achat du ou
+            des biens immobiliers mentionnés ci-dessous, après visite sur place.
+          </>
+        )}
+      </p>
+
+      <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
+        {rtl
+          ? "كما أصرح بأني سأقوم بزيارة ميدانية للعقار المذكور الذي تحت تصرف الوكالة قصد شراءه:"
+          : "Je déclare également effectuer une visite sur place du bien mentionné, placé sous la responsabilité de l'agence, en vue de son achat :"}
+      </p>
+
+      {/* Bien(s) */}
+      <div className="mb-[4mm] min-h-[11mm] rounded border border-[#111] px-[4mm] py-[2.5mm]">
+        {propertyLines.length > 0 ? (
+          propertyLines.map((line, index) => <div key={index}>{line}</div>)
+        ) : (
+          <div>{".".repeat(30)}</div>
+        )}
+      </div>
+
+      <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
+
+      {/* Engagement 2 */}
+      <p className={`mb-[3mm] ${rtl ? "text-right" : "text-justify"}`}>
+        {rtl ? (
+          <>
+            كما أني أتعهد بعدم محاولة التعامل بشكل مباشر أو غير مباشر مع
+            المالك مدة <b>24 شهر</b> من هذا اليوم وإلا أكون قد خالفت عمولة
+            الوكالة المقدرة بـ <b>2٪</b> من كامل المبلغ المحرر في العقد النهائي
+            (أو عقد الوعد بالبيع أو عقد بيع نهائي).
+          </>
+        ) : (
+          <>
+            Je m&apos;engage à ne pas tenter de traiter directement ou
+            indirectement avec le propriétaire pendant une durée{" "}
+            <b>de 24 mois</b> à compter de ce jour, faute de quoi j&apos;aurais
+            violé la commission de l&apos;agence fixée à <b>2 %</b> du montant
+            total inscrit dans le contrat définitif (promesse de vente ou acte
+            de vente définitif).
+          </>
+        )}
+      </p>
+
+      <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
+
+      {/* Signature */}
+      <div className="flex justify-between">
+        <span>{t.signature}</span>
+        <span>
+          {t.faitLe} {dateStr}
+        </span>
+      </div>
+
+      <div>{t.approved}</div>
+      <div className="h-[22mm]" />
+
+      {/* Pied de page */}
+      <div
+        dir="ltr"
+        className="mt-auto border-t border-gray-300 pt-[3mm] text-center text-[8.8pt] leading-[1.7] text-gray-700"
+      >
+        <div>
+          MF{rtl ? "" : " "}: {AGENCY.mf} · {AGENCY.phones.join(" · ")}
+        </div>
+        <div>Email{rtl ? "" : " "}: {AGENCY.email}</div>
+        <div>{AGENCY.address}</div>
+      </div>
+    </div>
   );
 
   return (
     <>
-      {/* Écran : aperçu dans l'application (masqué à l'impression) */}
+      {/* Aperçu écran */}
       <div className="mx-auto max-w-[210mm] bg-white p-10 print:hidden">
-      {/* Outils visibles uniquement à l'écran */}
-      <div className="print:hidden mb-6 flex justify-between items-center">
-        <Link href={`/crm/visits/${v.id}`}>
-          <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">← Retour à la visite</button>
-        </Link>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded border overflow-hidden text-sm">
-            <button
-              onClick={() => setLang("fr")}
-              className={`px-3 py-2 ${lang === "fr" ? "bg-primary text-white" : "bg-white"}`}
-            >
-              Français
+        <div className="mb-6 flex items-center justify-between print:hidden">
+          <Link href={`/crm/visits/${v.id}`}>
+            <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+              ← Retour à la visite
             </button>
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <div className="flex overflow-hidden rounded border text-sm">
+              <button
+                type="button"
+                onClick={() => setLang("fr")}
+                className={`px-3 py-2 ${
+                  lang === "fr" ? "bg-primary text-white" : "bg-white"
+                }`}
+              >
+                Français
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang("ar")}
+                className={`px-3 py-2 ${
+                  lang === "ar" ? "bg-primary text-white" : "bg-white"
+                }`}
+              >
+                العربية
+              </button>
+            </div>
+
             <button
-              onClick={() => setLang("ar")}
-              className={`px-3 py-2 ${lang === "ar" ? "bg-primary text-white" : "bg-white"}`}
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-2 rounded bg-primary px-4 py-2 text-white hover:bg-primary/90"
             >
-              العربية
+              <Printer className="h-4 w-4" />
+              Imprimer
             </button>
           </div>
-          <button
-            onClick={() => window.print()}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 flex items-center gap-2"
-          >
-            <Printer className="h-4 w-4" />
-            Imprimer
-          </button>
         </div>
-      </div>
 
         {renderSheet(false)}
       </div>
 
-      {/* Impression : seule la feuille est imprimée (rendue hors de la mise en page de l'application) */}
-      {mounted && createPortal(<div id="print-root">{renderSheet(true)}</div>, document.body)}
+      {/* Feuille imprimée */}
+      {mounted &&
+        createPortal(
+          <div id="print-root">{renderSheet(true)}</div>,
+          document.body
+        )}
 
       <style jsx global>{`
         #print-root {
           display: none;
         }
+
         @page {
           size: A4;
           margin: 0;
         }
+
         @media print {
           body > *:not(#print-root) {
             display: none !important;
           }
+
           #print-root {
             display: block !important;
           }
+
           html,
           body {
             background: white !important;
