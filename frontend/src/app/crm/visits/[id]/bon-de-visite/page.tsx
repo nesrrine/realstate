@@ -75,7 +75,6 @@ const TEXT = {
     agencyLeft: "Agence immobilière",
     tagline: "Vente · Achat · Location",
     visitReference: "Référence visite",
-   
   },
 
   ar: {
@@ -93,7 +92,6 @@ const TEXT = {
     agencyLeft: "Agence immobilière",
     tagline: "Vente · Achat · Location",
     visitReference: "مرجع الزيارة",
-   
   },
 };
 
@@ -107,21 +105,18 @@ type VisitData = {
   scheduledAt?: string | Date | null;
   createdAt?: string | Date | null;
 
-  // Références de la visite
+  // Références de la visite fournies par le backend
   visitNumber?: number | null;
   visitReference?: string | null;
   clientVisitCount?: number;
 
   client?: {
     id?: string;
-
     firstName?: string | null;
     lastName?: string | null;
-
     cinOrPassport?: string | null;
     phone?: string | null;
     email?: string | null;
-
     address?: string | null;
     city?: string | null;
     zipCode?: string | null;
@@ -163,9 +158,7 @@ export default function BonDeVisitePage() {
     setMounted(true);
   }, []);
 
-  /* ---------------------------------------------------------------- */
-  /* Récupération de la visite                                        */
-  /* ---------------------------------------------------------------- */
+  /* Récupération de la visite */
 
   const {
     data: visit,
@@ -177,9 +170,7 @@ export default function BonDeVisitePage() {
     enabled: !!visitId,
   });
 
-  /* ---------------------------------------------------------------- */
-  /* Chargement                                                        */
-  /* ---------------------------------------------------------------- */
+  /* Chargement */
 
   if (isLoading) {
     return (
@@ -210,16 +201,13 @@ export default function BonDeVisitePage() {
     );
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Données                                                           */
-  /* ---------------------------------------------------------------- */
+  /* Données */
 
   const v = visit as VisitData;
 
   const client = v.client ?? {};
   const properties = v.properties ?? [];
 
-  // Identité du client
   const fullName = [
     clean(client.firstName),
     clean(client.lastName),
@@ -230,9 +218,7 @@ export default function BonDeVisitePage() {
   const cinOrPassport = clean(client.cinOrPassport);
   const phone = clean(client.phone);
 
-  /* ---------------------------------------------------------------- */
-  /* Adresse automatique                                               */
-  /* ---------------------------------------------------------------- */
+  /* Adresse automatique */
 
   const personalAddress = [
     clean(client.address),
@@ -242,27 +228,17 @@ export default function BonDeVisitePage() {
     .filter(Boolean)
     .join(", ");
 
-  // Si l'adresse personnelle est vide,
-  // utiliser l'adresse professionnelle.
-
   const address =
     personalAddress ||
     clean(client.professionalAddress) ||
     "Non renseignée";
 
-  /* ---------------------------------------------------------------- */
-  /* Référence automatique de la visite                               */
-  /* ---------------------------------------------------------------- */
-
-  // Cette référence doit être fournie par le backend.
-  // Format : VIS-MM-NNN-YYYY
+  /* Référence automatique de la visite */
 
   const visitReference =
     clean(v.visitReference) || "Non disponible";
 
-  /* ---------------------------------------------------------------- */
-  /* Date                                                              */
-  /* ---------------------------------------------------------------- */
+  /* Date */
 
   const dateValue =
     v.scheduledAt ?? v.createdAt ?? new Date();
@@ -278,9 +254,7 @@ export default function BonDeVisitePage() {
 
   const dateStr = formatLongDate(safeDate, lang);
 
-  /* ---------------------------------------------------------------- */
-  /* Biens immobiliers                                                 */
-  /* ---------------------------------------------------------------- */
+  /* Biens immobiliers */
 
   const propertyLines = properties.map((item) => {
     const property = item.property ?? item;
@@ -298,29 +272,12 @@ export default function BonDeVisitePage() {
       .join(" — ");
   });
 
-  const refs = properties
-    .map((item) => {
-      const property = item.property ?? item;
-
-      return clean(
-        property.reference ??
-        property.ref ??
-        property.code
-      );
-    })
-    .filter(Boolean)
-    .join(", ");
-
-  /* ---------------------------------------------------------------- */
-  /* Langue                                                            */
-  /* ---------------------------------------------------------------- */
+  /* Langue */
 
   const t = TEXT[lang];
   const rtl = lang === "ar";
 
-  /* ---------------------------------------------------------------- */
-  /* Composant ligne                                                   */
-  /* ---------------------------------------------------------------- */
+  /* Composant ligne */
 
   const Row = ({
     label,
@@ -336,9 +293,7 @@ export default function BonDeVisitePage() {
     </div>
   );
 
-  /* ---------------------------------------------------------------- */
-  /* Document A4                                                       */
-  /* ---------------------------------------------------------------- */
+  /* Document A4 */
 
   const renderSheet = (forPrint: boolean) => (
     <div
@@ -349,9 +304,7 @@ export default function BonDeVisitePage() {
           : "min-h-[285mm] w-full max-w-[210mm] shadow"
       }`}
     >
-      {/* ---------------------------------------------------------- */}
-      {/* En-tête                                                     */}
-      {/* ---------------------------------------------------------- */}
+      {/* En-tête */}
 
       <div
         dir="ltr"
@@ -367,7 +320,6 @@ export default function BonDeVisitePage() {
           <div>{t.tagline}</div>
         </div>
 
-        {/* Logo */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={LOGO_SRC}
@@ -398,15 +350,13 @@ export default function BonDeVisitePage() {
         </div>
       </div>
 
-      {/* ---------------------------------------------------------- */}
-      {/* Titre                                                       */}
-      {/* ---------------------------------------------------------- */}
+      {/* Titre */}
 
       <h1 className="mb-1 mt-[12mm] text-center text-[21pt] font-bold">
         {t.title}
       </h1>
 
-      {/* Références */}
+      {/* Référence visite */}
 
       <div
         dir="ltr"
@@ -418,17 +368,13 @@ export default function BonDeVisitePage() {
             {visitReference}
           </span>
         </div>
-
-     
       </div>
 
       <div className="mb-[5mm] text-center font-bold">
         {t.visit}
       </div>
 
-      {/* ---------------------------------------------------------- */}
-      {/* Identité du client                                          */}
-      {/* ---------------------------------------------------------- */}
+      {/* Identité du client */}
 
       <div className="mb-[3mm] font-bold">
         {t.identity}
@@ -443,10 +389,7 @@ export default function BonDeVisitePage() {
         }
       />
 
-      <Row
-        label={t.nom}
-        value={fullName}
-      />
+      <Row label={t.nom} value={fullName} />
 
       <Row
         label={t.cin}
@@ -454,10 +397,7 @@ export default function BonDeVisitePage() {
         dots={26}
       />
 
-      <Row
-        label={t.adresse}
-        value={address}
-      />
+      <Row label={t.adresse} value={address} />
 
       <Row
         label={t.tel}
@@ -467,9 +407,7 @@ export default function BonDeVisitePage() {
 
       <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
 
-      {/* ---------------------------------------------------------- */}
-      {/* Engagement 1                                                */}
-      {/* ---------------------------------------------------------- */}
+      {/* Engagement 1 */}
 
       <p
         className={`mb-[3mm] ${
@@ -515,9 +453,7 @@ export default function BonDeVisitePage() {
           : "Je déclare également effectuer une visite sur place du bien mentionné, placé sous la responsabilité de l'agence, en vue de son achat :"}
       </p>
 
-      {/* ---------------------------------------------------------- */}
-      {/* Biens immobiliers                                           */}
-      {/* ---------------------------------------------------------- */}
+      {/* Biens immobiliers */}
 
       <div className="mb-[4mm] min-h-[11mm] rounded border border-[#111] px-[4mm] py-[2.5mm]">
         {propertyLines.length > 0 ? (
@@ -533,9 +469,7 @@ export default function BonDeVisitePage() {
 
       <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
 
-      {/* ---------------------------------------------------------- */}
-      {/* Engagement 2                                                */}
-      {/* ---------------------------------------------------------- */}
+      {/* Engagement 2 */}
 
       <p
         className={`mb-[3mm] ${
@@ -565,13 +499,10 @@ export default function BonDeVisitePage() {
 
       <hr className="my-[3.5mm] border-t-[1.6px] border-[#111]" />
 
-      {/* ---------------------------------------------------------- */}
-      {/* Signature                                                   */}
-      {/* ---------------------------------------------------------- */}
+      {/* Signature */}
 
       <div className="flex justify-between">
         <span>{t.signature}</span>
-
         <span>
           {t.faitLe} {dateStr}
         </span>
@@ -581,9 +512,7 @@ export default function BonDeVisitePage() {
 
       <div className="h-[22mm]" />
 
-      {/* ---------------------------------------------------------- */}
-      {/* Pied de page                                                */}
-      {/* ---------------------------------------------------------- */}
+      {/* Pied de page */}
 
       <div
         dir="ltr"
@@ -603,9 +532,7 @@ export default function BonDeVisitePage() {
     </div>
   );
 
-  /* ---------------------------------------------------------------- */
-  /* Interface                                                        */
-  /* ---------------------------------------------------------------- */
+  /* Interface */
 
   return (
     <>
@@ -621,8 +548,6 @@ export default function BonDeVisitePage() {
           </Link>
 
           <div className="flex items-center gap-2">
-            {/* Langues */}
-
             <div className="flex overflow-hidden rounded border text-sm">
               <button
                 type="button"
@@ -649,8 +574,6 @@ export default function BonDeVisitePage() {
               </button>
             </div>
 
-            {/* Impression */}
-
             <button
               type="button"
               onClick={() => window.print()}
@@ -675,9 +598,7 @@ export default function BonDeVisitePage() {
           document.body
         )}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Styles impression                                                 */}
-      {/* ---------------------------------------------------------------- */}
+      {/* Styles impression */}
 
       <style jsx global>{`
         #print-root {
