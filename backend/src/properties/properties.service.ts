@@ -636,4 +636,77 @@ export class PropertiesService {
       Promise.resolve(archive.finalize()).catch(reject);
     });
   }
+
+  // ── DOWNLOAD IMAGES ZIP ─────────────────────────────────────────────
+  async downloadImagesZip(propertyId: string, user: any): Promise<Buffer> {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: {
+        id: true,
+        agent: { select: { userId: true } },
+        images: {
+          select: { id: true, url: true },
+          orderBy: [{ isCover: "desc" as const }, { order: "asc" as const }],
+        },
+      },
+    });
+    if (!property) throw new NotFoundException(`Property ${propertyId} not found`);
+    if (user.role === Role.AGENT && property.agent.userId !== user.id) {
+      throw new ForbiddenException("You can only download images from your own properties");
+    }
+    if (!property.images || property.images.length === 0) {
+      throw new NotFoundException(`No images found for property ${propertyId}`);
+    }
+
+    // 1) Télécharger toutes les images AVANT de créer l'archive
+    const files = await Promise.all(
+      property.images.map(async (img, index) => {
+        const num = String(index + 1).padStart(3, "0");
+        try {
+          const response = await fetch(img.url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const buffer = Buffer.from(await response.arrayBuffer());
+
+          const pathname = new URL(img.url).pathname;
+          const dot = pathname.lastIndexOf(".");
+          const ext = dot > pathname.lastIndexOf("/") ? pathname.slice(dot) : ".jpg";
+
+          return { buffer, name: `image-${num}${ext}` };
+        } catch (e) {
+          const reason = getErrorMessage(e);
+          this.logger.error(`Cannot fetch image ${img.id} (${img.url}): ${reason}`);
+          // Fichier texte d'erreur au lieu de faire échouer tout le ZIP
+          return {
+            buffer: Buffer.from(`Erreur: impossible de récupérer l'image ${img.url}\n${reason}`, "utf-8"),
+            name: `image-${num}-erreur.txt`,
+          };
+        }
+      }),
+    );
+
+    // 2) Construire le ZIP
+    return new Promise<Buffer>((resolve, reject) => {
+      let archive: any;
+      try {
+        archive = this.createZipArchive();
+      } catch (err) {
+        this.logger.error(`Cannot create ZIP archive: ${getErrorMessage(err)}`);
+        return reject(err);
+      }
+
+      const chunks: Buffer[] = [];
+
+      archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+      archive.on("end", () => resolve(Buffer.concat(chunks)));
+      archive.on("error", (err: Error) => reject(err));
+      archive.on("warning", (err: Error) => this.logger.warn(`ZIP warning: ${err.message}`));
+
+      for (const file of files) {
+        archive.append(file.buffer, { name: file.name });
+      }
+
+      this.logger.log(`Finalizing ZIP with ${files.length} images`);
+      Promise.resolve(archive.finalize()).catch(reject);
+    });
+  }
 }

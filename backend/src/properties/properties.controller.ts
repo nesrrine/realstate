@@ -167,6 +167,30 @@ export class PropertiesController {
     return new StreamableFile(zipBuffer);
   }
 
+  // ── GET /properties/:id/images/download-zip ──────────────────────
+  @Get(":id/images/download-zip")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
+  @ApiOperation({ summary: "Download all property images as a ZIP file" })
+  @ApiParam({ name: "id", description: "Property CUID" })
+  @ApiResponse({ status: 200, description: "ZIP file with all images" })
+  @ApiResponse({ status: 403, description: "Forbidden" })
+  @ApiResponse({ status: 404, description: "No images found" })
+  async downloadImagesZip(
+    @Param("id") id: string,
+    @CurrentUser() user: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const zipBuffer = await this.propertiesService.downloadImagesZip(id, user);
+
+    res.set({
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="property-${id}-images.zip"`,
+    });
+
+    return new StreamableFile(zipBuffer);
+  }
+
   // ── DELETE /properties/:id/documents/:documentId ─────────────────
   @Delete(":id/documents/:documentId")
   @UseGuards(RolesGuard)
