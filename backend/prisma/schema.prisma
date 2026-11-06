@@ -157,6 +157,7 @@ model Property {
   updatedAt                DateTime           @updatedAt
   transactionType          TransactionType    @default(SALE)
   reference                String             @unique
+  titleDeedNumber          String?
   googleMapsUrl            String?
   businessActivity         String?
   businessDailyRevenue     Decimal?           @db.Decimal(12, 2)

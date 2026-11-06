@@ -192,6 +192,7 @@ const schema = z.object({
   agentId: z.string().optional(),
   isPublished: z.boolean(),
   notes: z.string().optional(),
+  titleDeedNumber: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -203,6 +204,7 @@ function getDefaults(p?: Property): FormValues {
     title: p?.title ?? "",
     description: p?.description ?? "",
     notes: p?.notes ?? "",
+    titleDeedNumber: p?.titleDeedNumber ?? "",
     type: p?.type ?? "APARTMENT",
     transactionType: p?.transactionType ?? "SALE",
     status: p?.status ?? "DRAFT",
@@ -333,6 +335,7 @@ function toPayload(v: FormValues): PropertyUpdatePayload {
     ownerId: v.ownerId,
     agentId: v.agentId,
     notes: t(v.notes),
+    titleDeedNumber: t(v.titleDeedNumber),
   };
 }
 
@@ -1212,6 +1215,19 @@ export function PropertyForm({ mode, property }: Props) {
                   {show("cellar") && checkbox("cellar", "Cave")}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Numéro de titre foncier */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Titre foncier</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="titleDeedNumber">Numéro de titre foncier</Label>
+                <Input id="titleDeedNumber" {...register("titleDeedNumber")} placeholder="Ex: 12345" />
+              </div>
             </CardContent>
           </Card>
 

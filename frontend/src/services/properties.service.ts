@@ -54,6 +54,7 @@ export interface PropertyDocument {
 export interface Property {
   id: string;
   reference: string;
+  titleDeedNumber?: string | null;
   title: string;
   description?: string | null;
   type: PropertyType;
@@ -210,6 +211,7 @@ export interface PropertyPayload {
   charges?: number;
   deposit?: number;
   notes?: string;
+  titleDeedNumber?: string;
   isPublished?: boolean;
   ownerId: string;
   agentId?: string;
