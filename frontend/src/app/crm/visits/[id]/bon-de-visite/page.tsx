@@ -167,16 +167,13 @@ export default function BonDeVisitePage() {
   const cinOrPassport = clean(client.cinOrPassport);
 
   // Adresse personnelle complète : adresse + ville + code postal.
-  const personalAddress = [
-    clean(client.address),
-    clean(client.city),
-    clean(client.zipCode),
-  ]
-    .filter(Boolean)
-    .join(", ");
+const address = [
+  clean(client.address),
+  clean(client.city),
+  clean(client.zipCode),
+].filter(Boolean).join(", ");
 
   // Si l'adresse personnelle est vide, utiliser l'adresse professionnelle.
-  const address = personalAddress || clean(client.professionalAddress);
 
   const phone = clean(client.phone);
 
