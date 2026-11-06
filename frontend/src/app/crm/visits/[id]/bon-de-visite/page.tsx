@@ -75,7 +75,7 @@ const TEXT = {
     agencyLeft: "Agence immobilière",
     tagline: "Vente · Achat · Location",
     visitReference: "Référence visite",
-    propertyReference: "Référence bien",
+   
   },
 
   ar: {
@@ -93,7 +93,7 @@ const TEXT = {
     agencyLeft: "Agence immobilière",
     tagline: "Vente · Achat · Location",
     visitReference: "مرجع الزيارة",
-    propertyReference: "مرجع العقار",
+   
   },
 };
 
@@ -419,10 +419,7 @@ export default function BonDeVisitePage() {
           </span>
         </div>
 
-        <div>
-          <strong>{t.propertyReference} :</strong>{" "}
-          <Val v={refs} dots={18} />
-        </div>
+     
       </div>
 
       <div className="mb-[5mm] text-center font-bold">
