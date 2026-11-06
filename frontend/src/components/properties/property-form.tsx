@@ -202,6 +202,7 @@ function getDefaults(p?: Property): FormValues {
   return {
     title: p?.title ?? "",
     description: p?.description ?? "",
+    notes: p?.notes ?? "",
     type: p?.type ?? "APARTMENT",
     transactionType: p?.transactionType ?? "SALE",
     status: p?.status ?? "DRAFT",
@@ -545,7 +546,7 @@ export function PropertyForm({ mode, property }: Props) {
       const createdTitle = payload.title;
 
       if (isEdit && property) {
-        await propertiesService.update(property.id, payload);
+        await propertiesService.update(property.id, stripNulls(payload) as PropertyPayload);
         const docFailed = await uploadDocuments(property.id);
         return { id: property.id, uploadFailed: docFailed > 0, created: false, title: createdTitle };
       }

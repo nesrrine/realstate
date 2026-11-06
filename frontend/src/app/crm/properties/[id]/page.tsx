@@ -461,6 +461,15 @@ export default function PropertyDetailsPage() {
                     {property.description}
                   </p>
                 </div>
+
+                {property.notes && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Notes internes</h3>
+                    <p className="text-muted-foreground whitespace-pre-wrap">
+                      {property.notes}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
