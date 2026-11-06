@@ -336,6 +336,7 @@ export class PropertiesService {
       pricePerSqm,
       charges:         dto.charges,
       deposit:         dto.deposit,
+      notes:           dto.notes,
       isPublished:     dto.isPublished ?? false,
       publishedAt:     dto.isPublished ? new Date() : null,
       agent:  { connect: { id: agentId } },

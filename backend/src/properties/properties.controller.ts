@@ -37,6 +37,10 @@ import { Role } from "../common/enums/role.enum";
 import { StreamableFile } from "@nestjs/common";
 import { Response } from "express";
 
+// Les variables de catch sont de type `unknown` (strict)
+const errMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+const errStack = (e: unknown): string | undefined => (e instanceof Error ? e.stack : undefined);
+
 @ApiTags("Properties")
 @ApiBearerAuth("JWT")
 @UseGuards(JwtAuthGuard)
@@ -137,6 +141,32 @@ export class PropertiesController {
     return this.propertiesService.addDocument(id, file, dto, user);
   }
 
+  // ── GET /properties/:id/documents/download-zip ──────────────────────
+  // Déclarée AVANT les routes avec :documentId pour qu'elle ne soit jamais
+  // interprétée comme un identifiant de document.
+  @Get(":id/documents/download-zip")
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
+  @ApiOperation({ summary: "Download all property documents as a ZIP file" })
+  @ApiParam({ name: "id", description: "Property CUID" })
+  @ApiResponse({ status: 200, description: "ZIP file with all documents" })
+  @ApiResponse({ status: 403, description: "Forbidden" })
+  @ApiResponse({ status: 404, description: "No documents found" })
+  async downloadDocumentsZip(
+    @Param("id") id: string,
+    @CurrentUser() user: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const zipBuffer = await this.propertiesService.downloadDocumentsZip(id, user);
+
+    res.set({
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="property-${id}-documents.zip"`,
+    });
+
+    return new StreamableFile(zipBuffer);
+  }
+
   // ── DELETE /properties/:id/documents/:documentId ─────────────────
   @Delete(":id/documents/:documentId")
   @UseGuards(RolesGuard)
@@ -179,44 +209,22 @@ export class PropertiesController {
         user,
       );
 
+      // filename* (RFC 5987) gère correctement les accents et les espaces
+      const safeName = filename.replace(/["\r\n]/g, "");
       res.set({
-        'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(safeName)}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
       });
 
       return new StreamableFile(stream);
     } catch (error) {
       // Log détaillé pour le débogage en production
       console.error(`[PropertiesController] Error downloading document ${documentId} from property ${id}:`, {
-        error: error.message,
-        stack: error.stack,
+        error: errMessage(error),
+        stack: errStack(error),
         user: user?.id,
       });
       throw error;
     }
-  }
-
-  // ── GET /properties/:id/documents/download-zip ──────────────────────
-  @Get(":id/documents/download-zip")
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiOperation({ summary: "Download all property documents as a ZIP file" })
-  @ApiParam({ name: "id", description: "Property CUID" })
-  @ApiResponse({ status: 200, description: "ZIP file with all documents" })
-  @ApiResponse({ status: 403, description: "Forbidden" })
-  @ApiResponse({ status: 404, description: "No documents found" })
-  async downloadDocumentsZip(
-    @Param("id") id: string,
-    @CurrentUser() user: any,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const zipBuffer = await this.propertiesService.downloadDocumentsZip(id, user);
-
-    res.set({
-      'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="property-${id}-documents.zip"`,
-    });
-
-    return new StreamableFile(zipBuffer);
   }
 }
