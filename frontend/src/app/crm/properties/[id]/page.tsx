@@ -49,6 +49,7 @@ import {
   getSpecificDetails,
   specificDetailsTitle,
 } from "@/lib/property-specific-details";
+
 export default function PropertyDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -121,26 +122,26 @@ export default function PropertyDetailsPage() {
 
   const handleDownloadDocument = async (doc: PropertyDocument) => {
     try {
-      console.log('Téléchargement du document:', doc);
       const blob = await propertiesService.downloadDocument(propertyId, doc.id);
-      
+
       // Vérifier que le blob est valide
       if (!blob || blob.size === 0) {
-        throw new Error('Le fichier téléchargé est vide ou introuvable');
+        throw new Error("Le fichier téléchargé est vide ou introuvable");
       }
-      
+
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.download = doc.originalName || doc.title || 'document';
+      link.download = doc.originalName || doc.title || "document";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success('Document téléchargé avec succès');
+      toast.success("Document téléchargé avec succès");
     } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      console.error("Erreur lors du téléchargement:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Erreur inconnue";
       toast.error(`Erreur lors du téléchargement: ${errorMessage}`);
     }
   };
@@ -262,9 +263,6 @@ export default function PropertyDetailsPage() {
 
   // Champs tolérants aux différences de nommage entre le type et le backend.
   // Utilisation de Record<string, unknown> pour éviter les accès non typés.
-  if (!property) {
-    return null;
-  }
   const loose = property as unknown as Record<string, unknown>;
   const postalCode: string =
     (loose.zipCode as string) ?? (loose.postalCode as string) ?? "";
@@ -274,6 +272,10 @@ export default function PropertyDetailsPage() {
     String(property.transactionType),
   );
   const specificDetails = getSpecificDetails(property);
+
+  // Numéro du titre foncier (champ ajouté en base : properties.titleDeedNumber)
+  const titleDeedNumber: string =
+    typeof loose.titleDeedNumber === "string" ? loose.titleDeedNumber.trim() : "";
 
   return (
     <div className="space-y-6">
@@ -386,6 +388,16 @@ export default function PropertyDetailsPage() {
                       {getVisitsCount(property) > 1 ? "s" : ""}
                     </span>
                   </div>
+                  {/* N° titre foncier */}
+                  <p className="mt-2 flex items-center gap-1.5 text-sm">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <span className="text-muted-foreground">
+                      N° titre foncier :
+                    </span>
+                    <span className="font-mono font-semibold">
+                      {titleDeedNumber || "Non renseigné"}
+                    </span>
+                  </p>
                 </div>
                 <Badge className={getStatusColor(property.status)}>
                   {getStatusLabel(property.status)}
@@ -446,7 +458,9 @@ export default function PropertyDetailsPage() {
                     <dl className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {specificDetails.map((row) => (
                         <div key={row.label} className="rounded-lg border p-3">
-                          <dt className="text-xs text-muted-foreground">{row.label}</dt>
+                          <dt className="text-xs text-muted-foreground">
+                            {row.label}
+                          </dt>
                           <dd className="font-semibold">{row.value}</dd>
                         </div>
                       ))}
@@ -470,6 +484,13 @@ export default function PropertyDetailsPage() {
                     </p>
                   </div>
                 )}
+
+                {property.titleDeedNumber && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Numéro de titre foncier</h3>
+                    <p className="text-muted-foreground">{property.titleDeedNumber}</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -489,7 +510,9 @@ export default function PropertyDetailsPage() {
                   disabled={isDownloadingDocs}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  {isDownloadingDocs ? "Téléchargement..." : "Télécharger tout (ZIP)"}
+                  {isDownloadingDocs
+                    ? "Téléchargement..."
+                    : "Télécharger tout (ZIP)"}
                 </Button>
               )}
             </CardHeader>
@@ -648,6 +671,12 @@ export default function PropertyDetailsPage() {
                   {property.reference || property.id}
                 </p>
               </div>
+              <div>
+                <p className="text-sm text-muted-foreground">N° titre foncier</p>
+                <p className="font-medium font-mono">
+                  {titleDeedNumber || "Non renseigné"}
+                </p>
+              </div>
               {property.googleMapsUrl && (
                 <div>
                   <p className="text-sm text-muted-foreground">
@@ -701,14 +730,20 @@ export default function PropertyDetailsPage() {
                 </Button>
               )}
               <Button className="w-full" variant="outline" asChild>
-                <Link href={`/crm/visits/new?propertyIds=${propertyId}`}>Planifier une visite</Link>
+                <Link href={`/crm/visits/new?propertyIds=${propertyId}`}>
+                  Planifier une visite
+                </Link>
               </Button>
               <Button className="w-full" variant="outline" asChild>
-                <Link href={`/crm/studio-annonce?propertyId=${propertyId}`}>Créer une affiche</Link>
+                <Link href={`/crm/studio-annonce?propertyId=${propertyId}`}>
+                  Créer une affiche
+                </Link>
               </Button>
               {canCreateTransaction && (
                 <Button className="w-full" variant="outline" asChild>
-                  <Link href={`/crm/transactions/new?propertyId=${propertyId}`}>Créer une transaction</Link>
+                  <Link href={`/crm/transactions/new?propertyId=${propertyId}`}>
+                    Créer une transaction
+                  </Link>
                 </Button>
               )}
               {canEditProperty(user, property) && (
@@ -722,8 +757,8 @@ export default function PropertyDetailsPage() {
                   {isPublishing
                     ? "Publication en cours..."
                     : property?.isPublished
-                    ? "Déspublier l'annonce"
-                    : "Publier l'annonce"}
+                      ? "Dépublier l'annonce"
+                      : "Publier l'annonce"}
                 </Button>
               )}
               <Button
@@ -731,10 +766,15 @@ export default function PropertyDetailsPage() {
                 variant="outline"
                 onClick={() => {
                   if (!property?.publishedAt) {
-                    toast.warning("Ce bien n'est pas publié : publiez-le pour partager son annonce");
+                    toast.warning(
+                      "Ce bien n'est pas publié : publiez-le pour partager son annonce",
+                    );
                     return;
                   }
-                  shareLink(`${window.location.origin}/biens/${propertyId}`, property.title);
+                  shareLink(
+                    `${window.location.origin}/biens/${propertyId}`,
+                    property.title,
+                  );
                 }}
               >
                 Partager l&apos;annonce
