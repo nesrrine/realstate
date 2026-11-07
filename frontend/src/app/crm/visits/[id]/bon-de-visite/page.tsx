@@ -65,7 +65,7 @@ const TEXT = {
     agencyLeft: "Agence immobilière",
     tagline: "Vente · Achat · Location",
     visitReference: "Référence visite",
-    titleDeed: "Titre foncier n°",
+    titleDeed: "",
   },
 
   ar: {
