@@ -23,8 +23,20 @@ const VISIT_INCLUDE = {
       zipCode: true,
     },
   },
-  properties: { include: { property: { select: { id: true, title: true, address: true, city: true } } } },
-  fieldAgent: { include: { user: { select: { firstName: true, lastName: true } } } },
+  properties: {
+    include: {
+      property: {
+        select: {
+          id: true,
+          reference: true,
+          title: true,
+          address: true,
+          city: true,
+          titleDeedNumber: true,
+        },
+      },
+    },
+  },  fieldAgent: { include: { user: { select: { firstName: true, lastName: true } } } },
   officeAgent: { include: { user: { select: { firstName: true, lastName: true } } } },
 };
 
@@ -279,20 +291,10 @@ export class VisitsService {
           completedAt: status === "COMPLETED" ? new Date() : undefined,
           duration: dto.duration,
           feedback: dto.feedback,
-       properties: {
-    include: {
-      property: {
-        select: {
-          id: true,
-          reference: true,
-          title: true,
-          address: true,
-          city: true,
-          titleDeedNumber: true,
+          properties: { create: propertyIds.map((pid) => ({ propertyId: pid })) },
         },
-      },
-    },
-  },
+        include: VISIT_INCLUDE,
+      });
       // Visite enregistrée directement comme terminée : même règle qu'à la modification
       if (status === "COMPLETED") await this.promoteProspect(tx, created.clientId);
       return created;
