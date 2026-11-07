@@ -279,10 +279,20 @@ export class VisitsService {
           completedAt: status === "COMPLETED" ? new Date() : undefined,
           duration: dto.duration,
           feedback: dto.feedback,
-          properties: { create: propertyIds.map((pid) => ({ propertyId: pid })) },
+       properties: {
+    include: {
+      property: {
+        select: {
+          id: true,
+          reference: true,
+          title: true,
+          address: true,
+          city: true,
+          titleDeedNumber: true,
         },
-        include: VISIT_INCLUDE,
-      });
+      },
+    },
+  },
       // Visite enregistrée directement comme terminée : même règle qu'à la modification
       if (status === "COMPLETED") await this.promoteProspect(tx, created.clientId);
       return created;
