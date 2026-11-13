@@ -1,3 +1,4 @@
+
 import {
   Controller,
   Get,
@@ -10,16 +11,29 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam, ApiResponse } from "@nestjs/swagger";
+
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiParam,
+  ApiResponse,
+} from "@nestjs/swagger";
+
 import { TransactionsService } from "./transactions.service";
+
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { UpdateTransactionDto } from "./dto/update-transaction.dto";
 import { TransactionFilterDto } from "./dto/transaction-filter.dto";
+
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
+
 import { Roles } from "../common/decorators/roles.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
+
 import { Role } from "../common/enums/role.enum";
 
 @ApiTags("Transactions")
@@ -27,49 +41,180 @@ import { Role } from "../common/enums/role.enum";
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("transactions")
 export class TransactionsController {
-  constructor(private service: TransactionsService) {}
+  constructor(
+    private readonly transactionsService: TransactionsService,
+  ) {}
 
+  /**
+   * GET /transactions
+   * Liste paginée des transactions.
+   */
   @Get()
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiOperation({ summary: "Liste des transactions (pagination, filtres)" })
-  @ApiResponse({ status: 200, description: "Liste paginée avec relations property, client, owner, agent, commission" })
-  findAll(@Query() filter: TransactionFilterDto, @CurrentUser() user: any) {
-    return this.service.findAll(filter, user);
+  @ApiOperation({
+    summary: "Lister les transactions",
+    description:
+      "Retourne une liste paginée avec filtres et recherche. " +
+      "Les agents ne voient que leurs propres transactions.",
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Liste paginée avec les relations property, client, owner, agents et commission.",
+  })
+  @ApiResponse({
+    status: 401,
+    description: "Non authentifié.",
+  })
+  findAll(
+    @Query() filter: TransactionFilterDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.findAll(filter, user);
   }
 
+  /**
+   * GET /transactions/:id
+   * Détail d'une transaction.
+   */
   @Get(":id")
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiParam({ name: "id" })
-  @ApiOperation({ summary: "Détail d'une transaction" })
-  findOne(@Param("id") id: string, @CurrentUser() user: any) {
-    return this.service.findOne(id, user);
+  @ApiOperation({
+    summary: "Récupérer une transaction",
+    description:
+      "Retourne les détails complets d'une transaction avec sa commission.",
+  })
+  @ApiParam({
+    name: "id",
+    description: "Identifiant de la transaction",
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Transaction trouvée.",
+  })
+  @ApiResponse({
+    status: 403,
+    description: "Accès refusé à cette transaction.",
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Transaction introuvable.",
+  })
+  findOne(
+    @Param("id") id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.findOne(id, user);
   }
 
+  /**
+   * POST /transactions
+   * Création d'une transaction.
+   */
   @Post()
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({
-    summary: "Créer une transaction (ADMIN/MANAGER)",
+    summary: "Créer une transaction",
     description:
-      "Crée la transaction et, par défaut, la commission associée (montants calculés selon GET /commissions/config).",
+      "Crée une transaction et sa commission associée par défaut. " +
+      "Les taux sont récupérés depuis la configuration des commissions.",
   })
-  create(@Body() dto: CreateTransactionDto, @CurrentUser() user: any) {
-    return this.service.create(dto, user);
+  @ApiResponse({
+    status: 201,
+    description: "Transaction créée avec succès.",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "Données invalides ou erreur de calcul de commission.",
+  })
+  @ApiResponse({
+    status: 403,
+    description: "Seuls ADMIN et MANAGER peuvent créer une transaction.",
+  })
+  create(
+    @Body() dto: CreateTransactionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.create(dto, user);
   }
 
+  /**
+   * PUT /transactions/:id
+   * Modification d'une transaction.
+   */
   @Put(":id")
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiParam({ name: "id" })
-  @ApiOperation({ summary: "Mettre à jour une transaction" })
-  update(@Param("id") id: string, @Body() dto: UpdateTransactionDto, @CurrentUser() user: any) {
-    return this.service.update(id, dto, user);
+  @ApiOperation({
+    summary: "Modifier une transaction",
+    description:
+      "Modifie le montant, la date, le statut, les notes et les agents. " +
+      "Lorsque le montant change, la commission existante est recalculée " +
+      "avec les taux historiques. Une commission déjà payée ne peut pas " +
+      "être recalculée.",
+  })
+  @ApiParam({
+    name: "id",
+    description: "Identifiant de la transaction à modifier",
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Transaction modifiée avec succès.",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "Données invalides ou commission déjà payée.",
+  })
+  @ApiResponse({
+    status: 403,
+    description: "Modification réservée à ADMIN et MANAGER.",
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Transaction introuvable.",
+  })
+  update(
+    @Param("id") id: string,
+    @Body() dto: UpdateTransactionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.update(id, dto, user);
   }
 
+  /**
+   * DELETE /transactions/:id
+   * Suppression d'une transaction.
+   */
   @Delete(":id")
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiParam({ name: "id" })
-  @ApiOperation({ summary: "Supprimer une transaction (ADMIN)" })
-  remove(@Param("id") id: string, @CurrentUser() user: any) {
-    return this.service.remove(id, user);
+  @ApiOperation({
+    summary: "Supprimer une transaction",
+    description:
+      "Supprime une transaction. Cette opération est réservée à ADMIN.",
+  })
+  @ApiParam({
+    name: "id",
+    description: "Identifiant de la transaction à supprimer",
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Transaction supprimée avec succès.",
+  })
+  @ApiResponse({
+    status: 403,
+    description: "Seul ADMIN peut supprimer une transaction.",
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Transaction introuvable.",
+  })
+  remove(
+    @Param("id") id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.transactionsService.remove(id, user);
   }
 }

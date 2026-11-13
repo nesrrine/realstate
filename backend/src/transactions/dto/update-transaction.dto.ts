@@ -6,27 +6,32 @@ import {
   Min,
   IsDateString,
   IsEnum,
-} from "class-validator";
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 
-import { Type } from "class-transformer";
-
-import { ApiPropertyOptional } from "@nestjs/swagger";
-
-import { TransactionStatus } from "@prisma/client";
+import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { TransactionStatus } from '@prisma/client';
 
 export class UpdateTransactionDto {
   @ApiPropertyOptional({
     example: 250000,
-    description: "Nouveau montant de la transaction",
+    description: 'Nouveau montant de la transaction en DT',
+    minimum: 0,
   })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({
+    allowNaN: false,
+    allowInfinity: false,
+  })
   @Min(0)
   amount?: number;
 
   @ApiPropertyOptional({
-    description: "Nouvelle date de transaction",
+    example: '2026-11-13',
+    description: 'Nouvelle date de transaction',
   })
   @IsOptional()
   @IsDateString()
@@ -34,27 +39,37 @@ export class UpdateTransactionDto {
 
   @ApiPropertyOptional({
     enum: TransactionStatus,
+    description: 'Nouveau statut de la transaction',
   })
   @IsOptional()
   @IsEnum(TransactionStatus)
   status?: TransactionStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    example: 'Informations complémentaires',
+    description: 'Notes concernant la transaction',
+    maxLength: 2000,
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   notes?: string;
 
   @ApiPropertyOptional({
-    description: "Nouvel agent terrain",
+    description: 'Identifiant du nouvel agent terrain',
+    example: 'cm123456789',
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   fieldAgentId?: string;
 
   @ApiPropertyOptional({
-    description: "Nouvel agent bureau",
+    description: 'Identifiant du nouvel agent bureau',
+    example: 'cm987654321',
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   officeAgentId?: string;
 }
