@@ -1,4 +1,3 @@
-'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -28,7 +27,7 @@ import {
 } from '@/components/ui/select';
 
 import { transactionsService } from '@/services/transactions.service';
-import { commissionsService } from '@/services/commissions.service';
+import { commissionsService, type CommissionPreview } from '@/services/commissions.service';
 import { propertiesService } from '@/services/properties.service';
 import { clientsService, type Client } from '@/services/clients.service';
 import { agentsService } from '@/services/agents.service';
@@ -49,24 +48,29 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-function formatDt(value: number) {
+function formatDt(value: number | string | undefined | null) {
+  const number = Number(value ?? 0);
+
   return new Intl.NumberFormat('fr-TN', {
     style: 'decimal',
     maximumFractionDigits: 2,
-  }).format(value);
+  }).format(Number.isFinite(number) ? number : 0);
 }
 
-/** defaultPropertyId : transaction créée depuis la fiche d'un bien */
-export function TransactionForm({ defaultPropertyId }: { defaultPropertyId?: string } = {}) {
+function formatRate(value: number | string | undefined | null) {
+  return (Number(value ?? 0) * 100).toFixed(2);
+}
+
+/** Transaction créée depuis la fiche d'un bien */
+export function TransactionForm({
+  defaultPropertyId,
+}: {
+  defaultPropertyId?: string;
+} = {}) {
   const router = useRouter();
   const qc = useQueryClient();
-  const [preview, setPreview] = useState<{
-    amount: number;
-    agencyAmount: number;
-    fieldAgentAmount: number;
-    officeAgentAmount: number;
-    commissionRate: number;
-  } | null>(null);
+
+  const [preview, setPreview] = useState<CommissionPreview | null>(null);
 
   const {
     register,
@@ -123,34 +127,51 @@ export function TransactionForm({ defaultPropertyId }: { defaultPropertyId?: str
     if (selectedProperty?.owner?.id) {
       setValue('ownerId', selectedProperty.owner.id);
     }
+
     if (selectedProperty?.fieldAgent?.id) {
       setValue('fieldAgentId', selectedProperty.fieldAgent.id);
     }
+
     if (selectedProperty?.officeAgent?.id) {
       setValue('officeAgentId', selectedProperty.officeAgent.id);
     }
+
     if (selectedProperty?.price && !amount) {
       setValue('amount', Number(selectedProperty.price));
     }
+
     if (selectedProperty?.transactionType) {
       setValue('transactionType', selectedProperty.transactionType);
     }
   }, [selectedProperty, setValue, amount]);
 
+  // Aperçu des commissions calculé par le backend
   useEffect(() => {
-    if (!amount || amount <= 0) {
+    if (amount === undefined || amount === null || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
       setPreview(null);
       return;
     }
-    const t = setTimeout(async () => {
+
+    let cancelled = false;
+
+    const timeout = setTimeout(async () => {
       try {
-        const result = await commissionsService.preview(amount);
-        setPreview(result);
+        const result = await commissionsService.preview(Number(amount));
+
+        if (!cancelled) {
+          setPreview(result);
+        }
       } catch {
-        setPreview(null);
+        if (!cancelled) {
+          setPreview(null);
+        }
       }
     }, 300);
-    return () => clearTimeout(t);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [amount]);
 
   const mutation = useMutation({
@@ -159,120 +180,165 @@ export function TransactionForm({ defaultPropertyId }: { defaultPropertyId?: str
         ...values,
         createCommission: true,
       }),
+
     onSuccess: () => {
       toast.success('Transaction créée');
+
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['commissions'] });
+
       router.push('/crm/transactions');
     },
+
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   return (
-    <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-6">
+    <form
+      onSubmit={handleSubmit((values) => mutation.mutate(values))}
+      className="space-y-6"
+    >
       <Card>
         <CardHeader>
           <CardTitle>Informations</CardTitle>
-          <CardDescription>Vente ou location — commission calculée automatiquement</CardDescription>
+          <CardDescription>
+            Vente ou location — commission calculée automatiquement
+          </CardDescription>
         </CardHeader>
+
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
             <Label>Bien *</Label>
+
             <Controller
               control={control}
               name="propertyId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un bien" />
                   </SelectTrigger>
+
                   <SelectContent>
-                    {properties.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.title} — {p.city}
+                    {properties.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>
+                        {property.title} — {property.city}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
+
             {errors.propertyId && (
-              <p className="text-sm text-destructive">{errors.propertyId.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.propertyId.message}
+              </p>
             )}
           </div>
 
           <div className="space-y-2">
             <Label>Client *</Label>
+
             <Controller
               control={control}
               name="clientId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Client" />
                   </SelectTrigger>
+
                   <SelectContent>
-                    {clients.map((c: Client) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.firstName} {c.lastName}
+                    {clients.map((client: Client) => (
+                      <SelectItem
+                        key={client.id}
+                        value={String(client.id)}
+                      >
+                        {client.firstName} {client.lastName}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
+
             {errors.clientId && (
-              <p className="text-sm text-destructive">{errors.clientId.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.clientId.message}
+              </p>
             )}
           </div>
 
           <div className="space-y-2">
             <Label>Agent terrain *</Label>
+
             <Controller
               control={control}
               name="fieldAgentId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Agent terrain" />
                   </SelectTrigger>
+
                   <SelectContent>
-                    {agents.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.user.firstName} {a.user.lastName}
+                    {agents.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.user.firstName} {agent.user.lastName}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
+
             {errors.fieldAgentId && (
-              <p className="text-sm text-destructive">{errors.fieldAgentId.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.fieldAgentId.message}
+              </p>
             )}
           </div>
 
           <div className="space-y-2">
             <Label>Agent bureau *</Label>
+
             <Controller
               control={control}
               name="officeAgentId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Agent bureau" />
                   </SelectTrigger>
+
                   <SelectContent>
-                    {agents.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.user.firstName} {a.user.lastName}
+                    {agents.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.user.firstName} {agent.user.lastName}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
+
             {errors.officeAgentId && (
-              <p className="text-sm text-destructive">{errors.officeAgentId.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.officeAgentId.message}
+              </p>
             )}
           </div>
 
@@ -280,14 +346,19 @@ export function TransactionForm({ defaultPropertyId }: { defaultPropertyId?: str
 
           <div className="space-y-2">
             <Label>Type</Label>
+
             <Controller
               control={control}
               name="transactionType"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
+
                   <SelectContent>
                     <SelectItem value="SALE">Vente</SelectItem>
                     <SelectItem value="RENTAL">Location</SelectItem>
@@ -299,14 +370,19 @@ export function TransactionForm({ defaultPropertyId }: { defaultPropertyId?: str
 
           <div className="space-y-2">
             <Label>Statut</Label>
+
             <Controller
               control={control}
               name="status"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
+
                   <SelectContent>
                     <SelectItem value="PENDING">En attente</SelectItem>
                     <SelectItem value="IN_PROGRESS">En cours</SelectItem>
@@ -320,9 +396,17 @@ export function TransactionForm({ defaultPropertyId }: { defaultPropertyId?: str
 
           <div className="space-y-2">
             <Label>Montant (DT) *</Label>
-            <Input type="number" step="0.01" {...register('amount')} />
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              {...register('amount')}
+            />
+
             {errors.amount && (
-              <p className="text-sm text-destructive">{errors.amount.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.amount.message}
+              </p>
             )}
           </div>
 
@@ -341,29 +425,69 @@ export function TransactionForm({ defaultPropertyId }: { defaultPropertyId?: str
       {preview && config && (
         <Card>
           <CardHeader>
-            <CardTitle>Aperçu commission</CardTitle>
+            <CardTitle>Aperçu des commissions</CardTitle>
+
             <CardDescription>
-              Taux global : {(config.commissionRate * 100).toFixed(2)} % — terrain :{' '}
-              {(config.fieldAgentShareRate * 100).toFixed(0)} % — bureau :{' '}
-              {(config.officeAgentShareRate * 100).toFixed(0)} %
+              Acheteur : {formatRate(preview.buyerCommissionRate)} % —
+              Vendeur : {formatRate(preview.sellerCommissionRate)} % —
+              Terrain : {formatRate(preview.fieldAgentShareRate)} % —
+              Bureau : {formatRate(preview.officeAgentShareRate)} %
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2 md:grid-cols-4 text-sm">
+
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
             <div>
-              <span className="text-muted-foreground">Commission totale</span>
-              <p className="text-lg font-semibold">{formatDt(preview.amount)} DT</p>
+              <span className="text-muted-foreground">
+                Commission acheteur
+              </span>
+              <p className="text-lg font-semibold">
+                {formatDt(preview.buyerAmount)} DT
+              </p>
             </div>
+
             <div>
-              <span className="text-muted-foreground">Agence</span>
-              <p className="text-lg font-semibold">{formatDt(preview.agencyAmount)} DT</p>
+              <span className="text-muted-foreground">
+                Commission vendeur
+              </span>
+              <p className="text-lg font-semibold">
+                {formatDt(preview.sellerAmount)} DT
+              </p>
             </div>
+
             <div>
-              <span className="text-muted-foreground">Agent terrain</span>
-              <p className="text-lg font-semibold">{formatDt(preview.fieldAgentAmount)} DT</p>
+              <span className="text-muted-foreground">
+                Commission totale
+              </span>
+              <p className="text-lg font-bold">
+                {formatDt(preview.amount)} DT
+              </p>
             </div>
+
             <div>
-              <span className="text-muted-foreground">Agent bureau</span>
-              <p className="text-lg font-semibold">{formatDt(preview.officeAgentAmount)} DT</p>
+              <span className="text-muted-foreground">
+                Part agence
+              </span>
+              <p className="text-lg font-semibold text-green-600">
+                {formatDt(preview.agencyAmount)} DT
+              </p>
+            </div>
+
+            <div>
+              <span className="text-muted-foreground">
+                Part agent terrain
+              </span>
+              <p className="text-lg font-semibold text-blue-600">
+                {formatDt(preview.fieldAgentAmount)} DT
+              </p>
+            </div>
+
+            <div>
+              <span className="text-muted-foreground">
+                Part agent bureau
+              </span>
+              <p className="text-lg font-semibold text-teal-600">
+                {formatDt(preview.officeAgentAmount)} DT
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -375,6 +499,7 @@ export function TransactionForm({ defaultPropertyId }: { defaultPropertyId?: str
         ) : (
           <Save className="mr-2 h-4 w-4" />
         )}
+
         Enregistrer
       </Button>
     </form>

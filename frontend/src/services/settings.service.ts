@@ -1,3 +1,4 @@
+
 import apiClient from '@/lib/api-client';
 
 /** Coordonnées de l'agence reprises dans les messages de confirmation de visite. */
@@ -16,7 +17,10 @@ export const settingsService = {
     const { data } = await apiClient.get('/settings/agency');
     return data;
   },
-  updateAgency: async (dto: Partial<AgencySettings>): Promise<AgencySettings> => {
+
+  updateAgency: async (
+    dto: Partial<AgencySettings>,
+  ): Promise<AgencySettings> => {
     const { data } = await apiClient.put('/settings/agency', dto);
     return data;
   },

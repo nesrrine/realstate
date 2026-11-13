@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -13,7 +14,13 @@ import { Badge } from "@/components/ui/badge";
 
 function formatDt(value: number | string) {
   const n = typeof value === "string" ? parseFloat(value) : value;
-  return new Intl.NumberFormat("fr-TN", { maximumFractionDigits: 2 }).format(n);
+  return new Intl.NumberFormat("fr-TN", {
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+function formatRate(value: number | string | undefined) {
+  return `${(Number(value ?? 0) * 100).toFixed(2)} %`;
 }
 
 const statusLabel: Record<string, string> = {
@@ -78,27 +85,36 @@ export default function TransactionDetailPage() {
               Détails
             </CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Type</span>
               <span>{tx.type === "SALE" ? "Vente" : "Location"}</span>
             </div>
+
             <div className="flex justify-between">
               <span className="text-muted-foreground">Montant</span>
-              <span className="font-semibold">{formatDt(tx.amount)} DT</span>
+              <span className="font-semibold">
+                {formatDt(tx.amount)} DT
+              </span>
             </div>
+
             <div className="flex justify-between">
               <span className="text-muted-foreground">Statut</span>
               <Badge variant="secondary">
                 {statusLabel[tx.status] ?? tx.status}
               </Badge>
             </div>
+
             <div className="flex justify-between">
               <span className="text-muted-foreground">Date</span>
               <span>
-                {tx.date ? new Date(tx.date).toLocaleDateString("fr-FR") : "—"}
+                {tx.date
+                  ? new Date(tx.date).toLocaleDateString("fr-FR")
+                  : "—"}
               </span>
             </div>
+
             <div className="flex justify-between">
               <span className="text-muted-foreground">Client</span>
               <span>
@@ -107,6 +123,7 @@ export default function TransactionDetailPage() {
                   : tx.clientId}
               </span>
             </div>
+
             <div className="flex justify-between">
               <span className="text-muted-foreground">Propriétaire</span>
               <span>
@@ -115,18 +132,25 @@ export default function TransactionDetailPage() {
                   : tx.ownerId}
               </span>
             </div>
+
             <div className="flex justify-between">
               <span className="text-muted-foreground">Agent terrain</span>
               <span>
-                {tx.fieldAgent?.user ? fullName(tx.fieldAgent.user) : "—"}
+                {tx.fieldAgent?.user
+                  ? fullName(tx.fieldAgent.user)
+                  : "—"}
               </span>
             </div>
+
             <div className="flex justify-between">
               <span className="text-muted-foreground">Agent bureau</span>
               <span>
-                {tx.officeAgent?.user ? fullName(tx.officeAgent.user) : "—"}
+                {tx.officeAgent?.user
+                  ? fullName(tx.officeAgent.user)
+                  : "—"}
               </span>
             </div>
+
             {tx.notes && (
               <div>
                 <span className="text-muted-foreground">Notes</span>
@@ -140,6 +164,7 @@ export default function TransactionDetailPage() {
           <CardHeader>
             <CardTitle className="text-lg">Commission</CardTitle>
           </CardHeader>
+
           <CardContent>
             {!tx.commission ? (
               <p className="text-muted-foreground text-sm">
@@ -147,36 +172,75 @@ export default function TransactionDetailPage() {
               </p>
             ) : (
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Taux</span>
-                  <span>
-                    {(Number(tx.commission.commissionRate) * 100).toFixed(2)} %
-                  </span>
+                <div className="rounded-lg border p-3 space-y-2">
+                  <p className="font-semibold">Commission acheteur</p>
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Taux</span>
+                    <span>
+                      {formatRate(tx.commission.buyerCommissionRate)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Montant</span>
+                    <span className="font-semibold">
+                      {formatDt(tx.commission.buyerAmount)} DT
+                    </span>
+                  </div>
                 </div>
+
+                <div className="rounded-lg border p-3 space-y-2">
+                  <p className="font-semibold">Commission vendeur</p>
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Taux</span>
+                    <span>
+                      {formatRate(tx.commission.sellerCommissionRate)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Montant</span>
+                    <span className="font-semibold">
+                      {formatDt(tx.commission.sellerAmount)} DT
+                    </span>
+                  </div>
+                </div>
+
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Agence</span>
                   <span>{formatDt(tx.commission.agencyAmount)} DT</span>
                 </div>
+
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Agent terrain</span>
-                  <span>{formatDt(tx.commission.fieldAgentAmount)} DT</span>
+                  <span>
+                    {formatDt(tx.commission.fieldAgentAmount)} DT
+                  </span>
                 </div>
+
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Agent bureau</span>
-                  <span>{formatDt(tx.commission.officeAgentAmount)} DT</span>
+                  <span>
+                    {formatDt(tx.commission.officeAgentAmount)} DT
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="font-semibold">
+
+                <div className="flex justify-between border-t pt-3">
+                  <span className="font-semibold">Commission totale</span>
+                  <span className="font-bold text-base">
                     {formatDt(tx.commission.amount)} DT
                   </span>
                 </div>
+
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Paiement</span>
                   <Badge variant="secondary">
                     {tx.commission.paymentStatus}
                   </Badge>
                 </div>
+
                 <Link href="/crm/commissions">
                   <Button variant="outline" size="sm" className="mt-2">
                     Voir toutes les commissions
