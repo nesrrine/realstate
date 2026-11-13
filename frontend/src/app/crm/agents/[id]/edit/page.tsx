@@ -20,7 +20,7 @@ export default function AgentEditPage() {
   const canEdit = user?.role === "ADMIN" || user?.role === "MANAGER";
 
   useEffect(() => {
-    if (!authLoading && user && !canEdit) {
+    if (!authLoading && (!user || !canEdit)) {
       router.replace("/crm/dashboard");
     }
   }, [authLoading, user, canEdit, router]);
@@ -35,9 +35,11 @@ export default function AgentEditPage() {
     enabled: !!id && !authLoading && canEdit,
   });
 
-  if (authLoading || !canEdit || isLoading) {
+  if (authLoading || (user && !canEdit) || isLoading) {
     return <div className="py-12 text-center">Chargement...</div>;
   }
+
+  if (!user) return null;
 
   if (error) {
     return (
@@ -59,8 +61,10 @@ export default function AgentEditPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
+
         <h1 className="text-2xl font-bold">Modifier l&apos;agent</h1>
       </div>
+
       <AgentForm mode="edit" agent={agent} />
     </div>
   );

@@ -1,3 +1,4 @@
+
 import apiClient from '@/lib/api-client';
 
 export interface AgentUser {
@@ -20,7 +21,11 @@ export const AGENT_TYPE_LABELS: Record<AgentType, string> = {
 
 export interface AgentOption {
   id: string;
-  user: { firstName: string; lastName: string; email: string };
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
 }
 
 export interface AgentListItem extends AgentOption {
@@ -35,9 +40,7 @@ export interface AgentListItem extends AgentOption {
   _count?: {
     clients: number;
     properties: number;
-    /** Visites accompagnées sur place */
     fieldAgentVisits: number;
-    /** Visites planifiées depuis l'agence */
     officeAgentVisits: number;
   };
 }
@@ -81,8 +84,14 @@ export interface CreateAgentDto {
   agentType?: AgentType;
 }
 
+export interface ResetAgentPasswordDto {
+  password: string;
+}
+
 export type UpdateAgentDto = Partial<
-  Omit<CreateAgentDto, 'password' | 'email'> & { isActive?: boolean }
+  Omit<CreateAgentDto, 'password' | 'email'> & {
+    isActive?: boolean;
+  }
 >;
 
 export const agentsService = {
@@ -97,8 +106,19 @@ export const agentsService = {
   },
 
   async getList(filters?: AgentFilters) {
-    const { data } = await apiClient.get('/agents', { params: filters });
-    return data as { data: AgentListItem[]; meta: { total: number; page: number; limit: number; totalPages: number } };
+    const { data } = await apiClient.get('/agents', {
+      params: filters,
+    });
+
+    return data as {
+      data: AgentListItem[];
+      meta: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      };
+    };
   },
 
   async getById(id: string): Promise<AgentDetail> {
@@ -116,14 +136,38 @@ export const agentsService = {
     return data as AgentListItem;
   },
 
-  /** Suppression complète : le portefeuille est transféré à transferTo (par défaut : l'utilisateur connecté). */
+  /**
+   * Réinitialisation du mot de passe d'un agent.
+   * Cette route doit être réservée au MANAGER côté backend.
+   */
+  async resetPassword(
+    id: string,
+    payload: ResetAgentPasswordDto,
+  ): Promise<{ message: string }> {
+    const { data } = await apiClient.patch(
+      `/agents/${id}/password`,
+      payload,
+    );
+
+    return data;
+  },
+
+  /**
+   * Suppression complète :
+   * le portefeuille est transféré à transferTo
+   * (par défaut : l'utilisateur connecté).
+   */
   async delete(id: string, transferTo?: string) {
     const { data } = await apiClient.delete(`/agents/${id}`, {
       params: transferTo ? { transferTo } : undefined,
     });
+
     return data as {
       message: string;
-      transferredTo: { id: string; name: string };
+      transferredTo: {
+        id: string;
+        name: string;
+      };
       moved: Record<string, number>;
     };
   },
