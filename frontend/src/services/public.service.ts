@@ -1,10 +1,13 @@
+
 import axios from 'axios';
 import type { LandZoning, TitleType } from './properties.service';
 import type { ChatListing, ChatTurn, SearchFilters } from './ai.service';
 
-// Client API public (sans authentification) pour le site vitrine
+// Client API public (sans authentification)
 const publicApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001/api',
+  baseURL:
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://127.0.0.1:3001/api',
   timeout: 30_000,
   headers: {
     'Content-Type': 'application/json',
@@ -73,11 +76,19 @@ export interface Property {
   updatedAt: string;
   fieldAgent: {
     id: string;
-    user: { firstName: string; lastName: string; email: string };
+    user: {
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
   };
   officeAgent: {
     id: string;
-    user: { firstName: string; lastName: string; email: string };
+    user: {
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
   };
   owner: {
     id: string;
@@ -128,7 +139,12 @@ export interface PublicAgency {
   phone: string;
 }
 
-export type ContactType = 'achat' | 'location' | 'vente' | 'estimation' | 'autre';
+export type ContactType =
+  | 'achat'
+  | 'location'
+  | 'vente'
+  | 'estimation'
+  | 'autre';
 
 export interface ContactPayload {
   name: string;
@@ -137,52 +153,111 @@ export interface ContactPayload {
   type: ContactType;
   message: string;
   propertyId?: string;
-  /** Champ piège anti-robot : doit rester vide */
   website?: string;
 }
 
 export const publicService = {
-  /** Coordonnées de l'agence (Paramètres du CRM) */
   async getAgency(): Promise<PublicAgency> {
     const { data } = await publicApi.get('/public/agency');
     return data;
   },
 
-  /** Formulaire de contact → lead dans le CRM, l'agent est notifié */
-  async sendContact(payload: ContactPayload): Promise<{ ok: boolean }> {
-    const { data } = await publicApi.post('/public/contact', payload);
+  async sendContact(
+    payload: ContactPayload
+  ): Promise<{ ok: boolean }> {
+    const { data } = await publicApi.post(
+      '/public/contact',
+      payload
+    );
     return data;
   },
 
-  /** Recherche en langage naturel → filtres de la page « Nos biens ». */
   async aiSearch(query: string): Promise<SearchFilters> {
-    const { data } = await publicApi.post('/public/ai/search', { query }, { timeout: 60_000 });
+    const { data } = await publicApi.post(
+      '/public/ai/search',
+      { query },
+      { timeout: 60_000 }
+    );
     return data.filters;
   },
 
-  /** Assistant du site : réponse + annonces mises en avant. */
-  async aiChat(messages: ChatTurn[]): Promise<{ reply: string; properties: ChatListing[]; leadCreated: boolean }> {
-    const { data } = await publicApi.post('/public/ai/chat', { messages }, { timeout: 90_000 });
+  async aiChat(
+    messages: ChatTurn[]
+  ): Promise<{
+    reply: string;
+    properties: ChatListing[];
+    leadCreated: boolean;
+  }> {
+    const { data } = await publicApi.post(
+      '/public/ai/chat',
+      { messages },
+      { timeout: 90_000 }
+    );
     return data;
   },
 
-  async getProperties(filters?: PropertyFilters): Promise<PropertiesResponse> {
-    const params: Record<string, unknown> = {};
-    if (filters) {
-      Object.entries(filters).forEach(([k, v]) => {
-        if (v !== undefined && v !== null && v !== '') {
-          params[k] = v;
-        }
-      });
+  async getProperties(
+    filters: PropertyFilters = {}
+  ): Promise<PropertiesResponse> {
+    const params = new URLSearchParams();
+
+    // Pagination
+    params.set(
+      'page',
+      String(Math.max(1, Math.floor(Number(filters.page) || 1)))
+    );
+
+    params.set(
+      'limit',
+      String(
+        Math.min(
+          100,
+          Math.max(1, Math.floor(Number(filters.limit) || 12))
+        )
+      )
+    );
+
+    // Filtres de recherche
+    Object.entries(filters).forEach(([key, value]) => {
+      if (
+        key === 'page' ||
+        key === 'limit' ||
+        value === undefined ||
+        value === null ||
+        value === ''
+      ) {
+        return;
+      }
+
+      params.set(key, String(value));
+    });
+
+    // Site public : uniquement les biens publiés
+    params.set('isPublished', 'true');
+
+    const response = await publicApi.get<PropertiesResponse>(
+      '/public/properties',
+      {
+        params,
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      }
+    );
+
+    const result = response.data;
+
+    if (!result || !Array.isArray(result.data) || !result.meta) {
+      throw new Error('Réponse API des biens invalide');
     }
-    // For public site: only published properties
-    params.isPublished = true;
-    const { data } = await publicApi.get('/public/properties', { params });
-    return data;
+
+    return result;
   },
 
   async getPropertyById(id: string): Promise<Property> {
-    const { data } = await publicApi.get(`/public/properties/${id}`);
+    const { data } = await publicApi.get(
+      `/public/properties/${encodeURIComponent(id)}`
+    );
     return data;
   },
 };
