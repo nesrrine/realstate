@@ -139,8 +139,11 @@ export default function TransactionsPage() {
             />
           ) : (
             <>
-              <TransactionsTable items={rows} canManage={canManage} />
-              {meta && meta.total > 0 && (
+<TransactionsTable
+  items={rows}
+  canManage={canManage}
+  canDelete={user?.role === 'ADMIN'}
+/>              {meta && meta.total > 0 && (
                 <div className="border-t border-border px-6 py-4">
                   <DataTablePagination
                     meta={meta}

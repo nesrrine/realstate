@@ -1,7 +1,11 @@
+
 'use client';
 
 import Link from 'next/link';
-import { Eye, MoreHorizontal } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -19,13 +23,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Transaction, TransactionStatus, TransactionType } from '@/services/transactions.service';
+
+import {
+  transactionsService,
+  type Transaction,
+  type TransactionStatus,
+  type TransactionType,
+} from '@/services/transactions.service';
+
 import {
   TRANSACTION_LABELS,
   TRANSACTION_STATUS_LABELS,
   TRANSACTION_STATUS_STYLES,
   fullName,
 } from '@/lib/property-constants';
+import { getErrorMessage } from '@/lib/errors';
 
 const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   SALE: TRANSACTION_LABELS.SALE,
@@ -55,7 +67,9 @@ export function TransactionStatusBadge({ status }: { status: TransactionStatus }
 
 function formatAmount(value: number | string): string {
   const n = typeof value === 'string' ? parseFloat(value) : value;
+
   if (Number.isNaN(n)) return '—';
+
   return new Intl.NumberFormat('fr-TN', {
     style: 'currency',
     currency: 'TND',
@@ -87,9 +101,36 @@ export function TransactionsTableSkeleton() {
 interface Props {
   items: Transaction[];
   canManage?: boolean;
+  canDelete?: boolean;
 }
 
-export function TransactionsTable({ items, canManage = false }: Props) {
+export function TransactionsTable({
+  items,
+  canManage = false,
+  canDelete = false,
+}: Props) {
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => transactionsService.remove(id),
+    onSuccess: () => {
+      toast.success('Transaction supprimée');
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['commissions'] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const handleDelete = (id: string) => {
+    const confirmed = window.confirm(
+      'Voulez-vous vraiment supprimer cette transaction ? Cette action est irréversible.',
+    );
+
+    if (confirmed) {
+      deleteMutation.mutate(id);
+    }
+  };
+
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -104,9 +145,12 @@ export function TransactionsTable({ items, canManage = false }: Props) {
             <TableHead>Statut</TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Commission</TableHead>
-            {canManage && <TableHead className="text-right">Actions</TableHead>}
+            {(canManage || canDelete) && (
+              <TableHead className="text-right">Actions</TableHead>
+            )}
           </TableRow>
         </TableHeader>
+
         <TableBody>
           {items.map((tx) => (
             <TableRow key={tx.id}>
@@ -119,37 +163,44 @@ export function TransactionsTable({ items, canManage = false }: Props) {
                   {tx.property?.city ? ` (${tx.property.city})` : ''}
                 </Link>
               </TableCell>
+
               <TableCell>
                 {tx.client
                   ? `${tx.client.firstName} ${tx.client.lastName}`
                   : tx.clientId}
               </TableCell>
+
               <TableCell className="text-sm">
                 {tx.fieldAgent?.user ? fullName(tx.fieldAgent.user) : '—'}
               </TableCell>
+
               <TableCell className="text-sm">
                 {tx.officeAgent?.user ? fullName(tx.officeAgent.user) : '—'}
               </TableCell>
+
               <TableCell>
                 <TransactionTypeBadge type={tx.type} />
               </TableCell>
+
               <TableCell className="whitespace-nowrap">
                 {formatAmount(tx.amount)}
               </TableCell>
+
               <TableCell>
                 <TransactionStatusBadge status={tx.status} />
               </TableCell>
+
               <TableCell className="text-sm">
                 {tx.date
                   ? new Date(tx.date).toLocaleDateString('fr-FR')
                   : '—'}
               </TableCell>
+
               <TableCell className="text-sm">
-                {tx.commission
-                  ? formatAmount(tx.commission.amount)
-                  : '—'}
+                {tx.commission ? formatAmount(tx.commission.amount) : '—'}
               </TableCell>
-              {canManage && (
+
+              {(canManage || canDelete) && (
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -157,6 +208,7 @@ export function TransactionsTable({ items, canManage = false }: Props) {
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
+
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem asChild>
                         <Link href={`/crm/transactions/${tx.id}`}>
@@ -164,6 +216,26 @@ export function TransactionsTable({ items, canManage = false }: Props) {
                           Voir détails
                         </Link>
                       </DropdownMenuItem>
+
+                      {canManage && (
+                        <DropdownMenuItem asChild>
+                          <Link href={`/crm/transactions/${tx.id}/edit`}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Modifier
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+
+                      {canDelete && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          disabled={deleteMutation.isPending}
+                          onSelect={() => handleDelete(tx.id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
