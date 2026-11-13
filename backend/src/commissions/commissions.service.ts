@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { CommissionConfigService } from "./commission-config.service";
+import { CommissionConfigService, CommissionRates } from "./commission-config.service";
 import { calculateCommissionAmounts } from "./commission-calculator";
 import { CreateCommissionDto } from "./dto/create-commission.dto";
 import { UpdateCommissionDto } from "./dto/update-commission.dto";
@@ -26,6 +26,10 @@ const COMMISSION_INCLUDE = {
   },
 };
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const sumBy = (list: any[], key: string) =>
+  round2(list.reduce((s, c) => s + Number(c[key] ?? 0), 0));
+
 @Injectable()
 export class CommissionsService {
   constructor(
@@ -44,22 +48,28 @@ export class CommissionsService {
   }
 
   async updateConfig(dto: UpdateCommissionConfigDto) {
+    const current = await this.commissionConfig.getRates();
+    const field = dto.fieldAgentShareRate ?? current.fieldAgentShareRate;
+    const office = dto.officeAgentShareRate ?? current.officeAgentShareRate;
+    if (field + office > 1) {
+      throw new BadRequestException("La somme des parts agents ne peut pas dépasser 1");
+    }
     return this.commissionConfig.updateRates(dto);
   }
 
-  async calculatePreview(
-    transactionAmount: number,
-    commissionRate?: number,
-    fieldAgentShareRate?: number,
-    officeAgentShareRate?: number,
-  ) {
-    const defaults = await this.commissionConfig.getRates();
-    return calculateCommissionAmounts(
-      transactionAmount,
-      commissionRate ?? defaults.commissionRate,
-      fieldAgentShareRate ?? defaults.fieldAgentShareRate,
-      officeAgentShareRate ?? defaults.officeAgentShareRate,
-    );
+  async calculatePreview(transactionAmount: number, opts: Partial<CommissionRates> = {}) {
+    const d = await this.commissionConfig.getRates();
+    try {
+      return calculateCommissionAmounts(
+        transactionAmount,
+        opts.buyerCommissionRate ?? d.buyerCommissionRate,
+        opts.sellerCommissionRate ?? d.sellerCommissionRate,
+        opts.fieldAgentShareRate ?? d.fieldAgentShareRate,
+        opts.officeAgentShareRate ?? d.officeAgentShareRate,
+      );
+    } catch (e: any) {
+      throw new BadRequestException(e.message);
+    }
   }
 
   /**
@@ -68,10 +78,7 @@ export class CommissionsService {
   async createForTransaction(
     transactionId: string,
     transactionAmount: number,
-    commissionRate?: number,
-    fieldAgentShareRate?: number,
-    officeAgentShareRate?: number,
-    notes?: string,
+    opts: Partial<CommissionRates> & { notes?: string } = {},
   ) {
     const existing = await this.prisma.commission.findUnique({
       where: { transactionId },
@@ -82,25 +89,23 @@ export class CommissionsService {
       );
     }
 
-    const defaults = await this.commissionConfig.getRates();
-    const calculated = calculateCommissionAmounts(
-      transactionAmount,
-      commissionRate ?? defaults.commissionRate,
-      fieldAgentShareRate ?? defaults.fieldAgentShareRate,
-      officeAgentShareRate ?? defaults.officeAgentShareRate,
-    );
+    const c = await this.calculatePreview(transactionAmount, opts);
 
     return this.prisma.commission.create({
       data: {
         transactionId,
-        commissionRate: calculated.commissionRate,
-        fieldAgentShareRate: calculated.fieldAgentShareRate,
-        officeAgentShareRate: calculated.officeAgentShareRate,
-        amount: calculated.amount,
-        agencyAmount: calculated.agencyAmount,
-        fieldAgentAmount: calculated.fieldAgentAmount,
-        officeAgentAmount: calculated.officeAgentAmount,
-        notes,
+        commissionRate: c.commissionRate,
+        buyerCommissionRate: c.buyerCommissionRate,
+        sellerCommissionRate: c.sellerCommissionRate,
+        fieldAgentShareRate: c.fieldAgentShareRate,
+        officeAgentShareRate: c.officeAgentShareRate,
+        buyerAmount: c.buyerAmount,
+        sellerAmount: c.sellerAmount,
+        amount: c.amount,
+        agencyAmount: c.agencyAmount,
+        fieldAgentAmount: c.fieldAgentAmount,
+        officeAgentAmount: c.officeAgentAmount,
+        notes: opts.notes,
       },
       include: COMMISSION_INCLUDE,
     });
@@ -189,14 +194,13 @@ export class CommissionsService {
       throw new NotFoundException(`Transaction ${dto.transactionId} not found`);
     }
 
-    return this.createForTransaction(
-      dto.transactionId,
-      Number(transaction.amount),
-      dto.commissionRate,
-      dto.fieldAgentShareRate,
-      dto.officeAgentShareRate,
-      dto.notes,
-    );
+    return this.createForTransaction(dto.transactionId, Number(transaction.amount), {
+      buyerCommissionRate: dto.buyerCommissionRate,
+      sellerCommissionRate: dto.sellerCommissionRate,
+      fieldAgentShareRate: dto.fieldAgentShareRate,
+      officeAgentShareRate: dto.officeAgentShareRate,
+      notes: dto.notes,
+    });
   }
 
   async update(id: string, dto: UpdateCommissionDto, user: any) {
@@ -229,17 +233,20 @@ export class CommissionsService {
     }
 
     const rateChanged =
-      dto.commissionRate !== undefined ||
+      dto.buyerCommissionRate !== undefined ||
+      dto.sellerCommissionRate !== undefined ||
       dto.fieldAgentShareRate !== undefined ||
       dto.officeAgentShareRate !== undefined;
 
     if (rateChanged) {
-      const calculated = calculateCommissionAmounts(
-        Number(commission.transaction.amount),
-        dto.commissionRate ?? Number(commission.commissionRate),
-        dto.fieldAgentShareRate ?? Number(commission.fieldAgentShareRate),
-        dto.officeAgentShareRate ?? Number(commission.officeAgentShareRate),
-      );
+      const calculated = await this.calculatePreview(Number(commission.transaction.amount), {
+        buyerCommissionRate:
+          dto.buyerCommissionRate ?? Number(commission.buyerCommissionRate ?? 0),
+        sellerCommissionRate:
+          dto.sellerCommissionRate ?? Number(commission.sellerCommissionRate ?? 0),
+        fieldAgentShareRate: dto.fieldAgentShareRate ?? Number(commission.fieldAgentShareRate),
+        officeAgentShareRate: dto.officeAgentShareRate ?? Number(commission.officeAgentShareRate),
+      });
       Object.assign(data, calculated);
     }
 
@@ -285,55 +292,38 @@ export class CommissionsService {
       if (filter.endDate) where.createdAt.lte = new Date(filter.endDate);
     }
 
-    const [totalCommissions, paidCommissions, pendingCommissions, commissions] =
-      await this.prisma.$transaction([
-        this.prisma.commission.count({ where }),
-        this.prisma.commission.count({
-          where: { ...where, paymentStatus: CommissionPaymentStatus.PAID },
-        }),
-        this.prisma.commission.count({
-          where: { ...where, paymentStatus: CommissionPaymentStatus.PENDING },
-        }),
-        this.prisma.commission.findMany({
-          where,
-          select: {
-            amount: true,
-            agencyAmount: true,
-            fieldAgentAmount: true,
-            officeAgentAmount: true,
-            paymentStatus: true,
-          },
-        }),
-      ]);
+    const commissions = await this.prisma.commission.findMany({
+      where,
+      select: {
+        amount: true,
+        buyerAmount: true,
+        sellerAmount: true,
+        agencyAmount: true,
+        fieldAgentAmount: true,
+        officeAgentAmount: true,
+        paymentStatus: true,
+      },
+    });
 
-    const totalAmount = commissions.reduce((sum, c) => sum + Number(c.amount), 0);
-    const paidAmount = commissions
-      .filter((c) => c.paymentStatus === CommissionPaymentStatus.PAID)
-      .reduce((sum, c) => sum + Number(c.amount), 0);
-    const unpaidAmount = commissions
-      .filter((c) => c.paymentStatus === CommissionPaymentStatus.PENDING)
-      .reduce((sum, c) => sum + Number(c.amount), 0);
+    const paid = commissions.filter((c) => c.paymentStatus === CommissionPaymentStatus.PAID);
+    const pending = commissions.filter(
+      (c) => c.paymentStatus === CommissionPaymentStatus.PENDING,
+    );
+    const totalAmount = sumBy(commissions, "amount");
 
     return {
-      totalCommissions,
-      paidCommissions,
-      pendingCommissions,
-      totalAmount: Math.round(totalAmount * 100) / 100,
-      paidAmount: Math.round(paidAmount * 100) / 100,
-      unpaidAmount: Math.round(unpaidAmount * 100) / 100,
-      totalAgencyAmount: Math.round(
-        commissions.reduce((s, c) => s + Number(c.agencyAmount), 0) * 100,
-      ) / 100,
-      totalFieldAgentAmount: Math.round(
-        commissions.reduce((s, c) => s + Number(c.fieldAgentAmount), 0) * 100,
-      ) / 100,
-      totalOfficeAgentAmount: Math.round(
-        commissions.reduce((s, c) => s + Number(c.officeAgentAmount), 0) * 100,
-      ) / 100,
-      averageCommission:
-        totalCommissions > 0
-          ? Math.round((totalAmount / totalCommissions) * 100) / 100
-          : 0,
+      totalCommissions: commissions.length,
+      paidCommissions: paid.length,
+      pendingCommissions: pending.length,
+      totalAmount,
+      paidAmount: sumBy(paid, "amount"),
+      unpaidAmount: sumBy(pending, "amount"),
+      totalBuyerAmount: sumBy(commissions, "buyerAmount"),
+      totalSellerAmount: sumBy(commissions, "sellerAmount"),
+      totalAgencyAmount: sumBy(commissions, "agencyAmount"),
+      totalFieldAgentAmount: sumBy(commissions, "fieldAgentAmount"),
+      totalOfficeAgentAmount: sumBy(commissions, "officeAgentAmount"),
+      averageCommission: commissions.length ? round2(totalAmount / commissions.length) : 0,
     };
   }
 

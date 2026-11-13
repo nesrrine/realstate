@@ -396,12 +396,16 @@ model Transaction {
 model Commission {
   id                   String                  @id @default(cuid())
   transactionId        String                  @unique
-  amount               Decimal                 @db.Decimal(10, 2)
+  amount               Decimal                 @db.Decimal(10, 2) // total = buyerAmount + sellerAmount
   paidAt               DateTime?
   notes                String?
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
-  commissionRate       Decimal                 @db.Decimal(5, 4)
+  commissionRate       Decimal                 @db.Decimal(5, 4) // taux global = acheteur + vendeur
+  buyerCommissionRate  Decimal?                @db.Decimal(5, 4)
+  sellerCommissionRate Decimal?                @db.Decimal(5, 4)
+  buyerAmount          Decimal                 @default(0) @db.Decimal(10, 2) // NOUVEAU
+  sellerAmount         Decimal                 @default(0) @db.Decimal(10, 2) // NOUVEAU
   agencyAmount         Decimal                 @db.Decimal(10, 2)
   paymentStatus        CommissionPaymentStatus @default(PENDING)
   fieldAgentAmount     Decimal                 @db.Decimal(10, 2)

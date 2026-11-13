@@ -11,14 +11,26 @@ export class CreateCommissionDto {
   @ApiPropertyOptional({
     example: 0.02,
     description:
-      "Taux de commission (0.02 = 2 %). Si omis, utilise la configuration globale.",
+      "Taux commission acheteur (0.02 = 2 %). Si omis, utilise la configuration globale.",
   })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   @Max(1)
-  commissionRate?: number;
+  buyerCommissionRate?: number;
+
+  @ApiPropertyOptional({
+    example: 0.02,
+    description:
+      "Taux commission vendeur/propriétaire (0.02 = 2 %). Si omis, utilise la configuration globale.",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  sellerCommissionRate?: number;
 
   @ApiPropertyOptional({
     example: 0.3,

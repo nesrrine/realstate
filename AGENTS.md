@@ -49,3 +49,4 @@ npx eslint src --max-warnings 0
 | admin@agency.com     | Admin1234!    | ADMIN   |
 | manager@agency.com   | Manager1234!  | MANAGER |
 | agent@agency.com     | Agent1234!    | AGENT   |
+  

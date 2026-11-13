@@ -2,12 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 
-export const SETTING_COMMISSION_RATE = "COMMISSION_RATE";
+export const SETTING_BUYER_COMMISSION_RATE = "BUYER_COMMISSION_RATE";
+export const SETTING_SELLER_COMMISSION_RATE = "SELLER_COMMISSION_RATE";
 export const SETTING_FIELD_AGENT_SHARE_RATE = "FIELD_AGENT_SHARE_RATE";
 export const SETTING_OFFICE_AGENT_SHARE_RATE = "OFFICE_AGENT_SHARE_RATE";
 
 export interface CommissionRates {
-  commissionRate: number;
+  buyerCommissionRate: number;
+  sellerCommissionRate: number;
   fieldAgentShareRate: number;
   officeAgentShareRate: number;
 }
@@ -19,73 +21,58 @@ export class CommissionConfigService {
     private config: ConfigService,
   ) {}
 
-  private envCommissionRate(): number {
-    return parseFloat(this.config.get("COMMISSION_RATE", "0.02"));
-  }
-
-  private envFieldAgentShareRate(): number {
-    return parseFloat(this.config.get("FIELD_AGENT_SHARE_RATE", "0.3"));
-  }
-
-  private envOfficeAgentShareRate(): number {
-    return parseFloat(this.config.get("OFFICE_AGENT_SHARE_RATE", "0.2"));
+  private env(key: string, def: string): number {
+    return parseFloat(this.config.get<string>(key, def));
   }
 
   async getRates(): Promise<CommissionRates> {
+    const keys = [
+      SETTING_BUYER_COMMISSION_RATE,
+      SETTING_SELLER_COMMISSION_RATE,
+      SETTING_FIELD_AGENT_SHARE_RATE,
+      SETTING_OFFICE_AGENT_SHARE_RATE,
+    ];
     const rows = await this.prisma.appSetting.findMany({
-      where: {
-        key: { in: [SETTING_COMMISSION_RATE, SETTING_FIELD_AGENT_SHARE_RATE, SETTING_OFFICE_AGENT_SHARE_RATE] },
-      },
+      where: { key: { in: keys } },
     });
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
 
+    const pick = (key: string, envKey: string, def: string) =>
+      parseFloat(map[key] ?? String(this.env(envKey, def)));
+
     return {
-      commissionRate: parseFloat(
-        map[SETTING_COMMISSION_RATE] ?? String(this.envCommissionRate()),
-      ),
-      fieldAgentShareRate: parseFloat(
-        map[SETTING_FIELD_AGENT_SHARE_RATE] ?? String(this.envFieldAgentShareRate()),
-      ),
-      officeAgentShareRate: parseFloat(
-        map[SETTING_OFFICE_AGENT_SHARE_RATE] ?? String(this.envOfficeAgentShareRate()),
-      ),
+      buyerCommissionRate: pick(SETTING_BUYER_COMMISSION_RATE, "BUYER_COMMISSION_RATE", "0.02"),
+      sellerCommissionRate: pick(SETTING_SELLER_COMMISSION_RATE, "SELLER_COMMISSION_RATE", "0.02"),
+      fieldAgentShareRate: pick(SETTING_FIELD_AGENT_SHARE_RATE, "FIELD_AGENT_SHARE_RATE", "0.3"),
+      officeAgentShareRate: pick(SETTING_OFFICE_AGENT_SHARE_RATE, "OFFICE_AGENT_SHARE_RATE", "0.2"),
     };
   }
 
   async updateRates(partial: Partial<CommissionRates>): Promise<CommissionRates> {
     const current = await this.getRates();
     const next: CommissionRates = {
-      commissionRate: partial.commissionRate ?? current.commissionRate,
+      buyerCommissionRate: partial.buyerCommissionRate ?? current.buyerCommissionRate,
+      sellerCommissionRate: partial.sellerCommissionRate ?? current.sellerCommissionRate,
       fieldAgentShareRate: partial.fieldAgentShareRate ?? current.fieldAgentShareRate,
       officeAgentShareRate: partial.officeAgentShareRate ?? current.officeAgentShareRate,
     };
 
-    await this.prisma.$transaction([
-      this.prisma.appSetting.upsert({
-        where: { key: SETTING_COMMISSION_RATE },
-        create: {
-          key: SETTING_COMMISSION_RATE,
-          value: String(next.commissionRate),
-        },
-        update: { value: String(next.commissionRate) },
-      }),
-      this.prisma.appSetting.upsert({
-        where: { key: SETTING_FIELD_AGENT_SHARE_RATE },
-        create: {
-          key: SETTING_FIELD_AGENT_SHARE_RATE,
-          value: String(next.fieldAgentShareRate),
-        },
-        update: { value: String(next.fieldAgentShareRate) },
-      }),
-      this.prisma.appSetting.upsert({
-        where: { key: SETTING_OFFICE_AGENT_SHARE_RATE },
-        create: {
-          key: SETTING_OFFICE_AGENT_SHARE_RATE,
-          value: String(next.officeAgentShareRate),
-        },
-        update: { value: String(next.officeAgentShareRate) },
-      }),
-    ]);
+    const entries: [string, number][] = [
+      [SETTING_BUYER_COMMISSION_RATE, next.buyerCommissionRate],
+      [SETTING_SELLER_COMMISSION_RATE, next.sellerCommissionRate],
+      [SETTING_FIELD_AGENT_SHARE_RATE, next.fieldAgentShareRate],
+      [SETTING_OFFICE_AGENT_SHARE_RATE, next.officeAgentShareRate],
+    ];
+
+    await this.prisma.$transaction(
+      entries.map(([key, value]) =>
+        this.prisma.appSetting.upsert({
+          where: { key },
+          create: { key, value: String(value) },
+          update: { value: String(value) },
+        }),
+      ),
+    );
 
     return next;
   }

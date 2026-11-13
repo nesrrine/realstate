@@ -199,7 +199,7 @@ export function PropertiesList({
   
   const filters: PropertyFilters = {
     page: searchParams.get('page') ? Number(searchParams.get('page')) : 1,
-    limit: 12,
+    limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 12,
     search: searchParams.get('search') || undefined,
     transactionType: initialTransactionType || defaultTransactionType,
     type: initialType || defaultType,
@@ -352,19 +352,23 @@ export function PropertiesList({
 
       {meta && meta.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-10">
-          <Button
+<Button
             variant="outline"
             size="sm"
             disabled={meta.page <= 1}
             onClick={() => {
               const params = new URLSearchParams(searchParams.toString());
-              params.set('page', String(meta.page - 1));
-              window.location.href = `/biens?${params.toString()}`;
+              const prevPage = meta.page - 1;
+              params.set('page', String(prevPage));
+              params.set('limit', String(filters.limit ?? 12));
+              const url = `/biens?${params.toString()}`;
+              console.log('Pagination prev:', { currentPage: meta.page, prevPage, totalPages: meta.totalPages, url });
+              window.location.href = url;
             }}
             className="gap-1"
           >
             <ChevronLeft className="h-4 w-4" />
-            Précédent
+            PrÃ©cÃ©dent
           </Button>
           <span className="px-4 text-sm text-slate-600 font-medium">
             Page <span className="font-semibold text-slate-900">{meta.page}</span> / <span className="font-semibold text-slate-900">{meta.totalPages}</span>
@@ -375,8 +379,12 @@ export function PropertiesList({
             disabled={meta.page >= meta.totalPages}
             onClick={() => {
               const params = new URLSearchParams(searchParams.toString());
-              params.set('page', String(meta.page + 1));
-              window.location.href = `/biens?${params.toString()}`;
+              const nextPage = meta.page + 1;
+              params.set('page', String(nextPage));
+              params.set('limit', String(filters.limit ?? 12));
+              const url = `/biens?${params.toString()}`;
+              console.log('Pagination next:', { currentPage: meta.page, nextPage, totalPages: meta.totalPages, url });
+              window.location.href = url;
             }}
             className="gap-1"
           >

@@ -1,26 +1,37 @@
 import {
   IsOptional,
   IsNumber,
-  Min,
-  Max,
-  IsDateString,
   IsString,
   IsEnum,
+  IsDateString,
+  Min,
+  Max,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { CommissionPaymentStatus } from "@prisma/client";
 
 export class UpdateCommissionDto {
-  @ApiPropertyOptional({ example: 0.02, description: "Taux de commission" })
+  @ApiPropertyOptional({ example: 0.02, description: "Taux commission acheteur (0.02 = 2 %)" })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   @Max(1)
-  commissionRate?: number;
+  buyerCommissionRate?: number;
 
-  @ApiPropertyOptional({ example: 0.3, description: "Part agent terrain" })
+  @ApiPropertyOptional({
+    example: 0.02,
+    description: "Taux commission vendeur/propriétaire (0.02 = 2 %)",
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  sellerCommissionRate?: number;
+
+  @ApiPropertyOptional({ example: 0.3, description: "Part agent terrain sur le total" })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -28,7 +39,7 @@ export class UpdateCommissionDto {
   @Max(1)
   fieldAgentShareRate?: number;
 
-  @ApiPropertyOptional({ example: 0.2, description: "Part agent bureau" })
+  @ApiPropertyOptional({ example: 0.2, description: "Part agent bureau sur le total" })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -41,7 +52,7 @@ export class UpdateCommissionDto {
   @IsEnum(CommissionPaymentStatus)
   paymentStatus?: CommissionPaymentStatus;
 
-  @ApiPropertyOptional({ description: "Date de paiement (ISO)" })
+  @ApiPropertyOptional({ description: "Date de paiement (ISO 8601)" })
   @IsOptional()
   @IsDateString()
   paidAt?: string;

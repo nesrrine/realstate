@@ -58,7 +58,7 @@ export class CommissionsController {
   @ApiOperation({
     summary: "Configuration des taux de commission",
     description:
-      "Taux par défaut (ex. 2 %). Montant agence = montant transaction × taux × (1 - part agent).",
+      "Défauts : acheteur 2 %, vendeur 2 %. Total = montant × (taux acheteur + taux vendeur). Agence = total × (1 − part terrain − part bureau).",
   })
   getConfig() {
     return this.service.getConfig();
@@ -82,21 +82,28 @@ export class CommissionsController {
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
   @ApiOperation({
     summary: "Simuler le calcul de commission sans enregistrement",
-    description: "Ex. amount=250000, rate=0.02 → agencyAmount=2500, agentAmount=2500 (part 50 %)",
+    description:
+      "Ex. amount=250000, buyer=0.02, seller=0.02 → buyerAmount=5000, sellerAmount=5000, amount=10000",
   })
   @ApiQuery({ name: "amount", type: Number, required: true, example: 250000 })
-  @ApiQuery({ name: "commissionRate", type: Number, required: false, example: 0.02 })
-  @ApiQuery({ name: "agentShareRate", type: Number, required: false, example: 0.5 })
+  @ApiQuery({ name: "buyerCommissionRate", type: Number, required: false, example: 0.02 })
+  @ApiQuery({ name: "sellerCommissionRate", type: Number, required: false, example: 0.02 })
+  @ApiQuery({ name: "fieldAgentShareRate", type: Number, required: false, example: 0.3 })
+  @ApiQuery({ name: "officeAgentShareRate", type: Number, required: false, example: 0.2 })
   calculatePreview(
     @Query("amount") amount: string,
-    @Query("commissionRate") commissionRate?: string,
-    @Query("agentShareRate") agentShareRate?: string,
+    @Query("buyerCommissionRate") buyer?: string,
+    @Query("sellerCommissionRate") seller?: string,
+    @Query("fieldAgentShareRate") field?: string,
+    @Query("officeAgentShareRate") office?: string,
   ) {
-    return this.service.calculatePreview(
-      parseFloat(amount),
-      commissionRate ? parseFloat(commissionRate) : undefined,
-      agentShareRate ? parseFloat(agentShareRate) : undefined,
-    );
+    const num = (v?: string) => (v !== undefined && v !== "" ? parseFloat(v) : undefined);
+    return this.service.calculatePreview(parseFloat(amount), {
+      buyerCommissionRate: num(buyer),
+      sellerCommissionRate: num(seller),
+      fieldAgentShareRate: num(field),
+      officeAgentShareRate: num(office),
+    });
   }
 
   @Get(":id")
@@ -111,7 +118,8 @@ export class CommissionsController {
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({
     summary: "Créer une commission pour une transaction",
-    description: "Les montants agencyAmount et agentAmount sont calculés automatiquement.",
+    description:
+      "Les montants buyerAmount, sellerAmount, agencyAmount, fieldAgentAmount et officeAgentAmount sont calculés automatiquement.",
   })
   create(@Body() dto: CreateCommissionDto, @CurrentUser() user: any) {
     return this.service.create(dto, user);
