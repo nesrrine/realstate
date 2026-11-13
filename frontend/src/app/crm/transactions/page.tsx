@@ -1,3 +1,4 @@
+
 'use client';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -15,15 +16,19 @@ import { getErrorMessage } from '@/lib/errors';
 import { queryKeys } from '@/lib/query-keys';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
 import { EmptyState } from '@/components/shared/empty-state';
 import { DataTablePagination } from '@/components/shared/data-table-pagination';
 import { usePersistentState } from '@/hooks/use-persistent-state';
 import { ExportExcelButton } from '@/components/shared/export-excel-button';
-import {
-  TransactionsFiltersBar,
-} from '@/components/transactions/transactions-filters-bar';
+
+import { TransactionsFiltersBar } from '@/components/transactions/transactions-filters-bar';
 import {
   TransactionsTable,
   TransactionsTableSkeleton,
@@ -33,15 +38,21 @@ const DEFAULT_LIMIT = 20;
 
 export default function TransactionsPage() {
   const { user } = useAuth();
-  const canManage = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
-  const [filters, setFilters] = usePersistentState<TransactionFilters>('transactions', {
-    page: 1,
-    limit: DEFAULT_LIMIT,
-  });
+  const canManage =
+    user?.role === 'ADMIN' || user?.role === 'MANAGER';
+
+  const canDelete = user?.role === 'ADMIN';
+
+  const [filters, setFilters] =
+    usePersistentState<TransactionFilters>('transactions', {
+      page: 1,
+      limit: DEFAULT_LIMIT,
+    });
 
   const debouncedFilters = useDebounce(filters, 300);
 
+  // Mise à jour des filtres avec retour à la première page.
   const updateFilters = (patch: Partial<TransactionFilters>) => {
     setFilters((current) => ({
       ...current,
@@ -50,6 +61,7 @@ export default function TransactionsPage() {
     }));
   };
 
+  // Chargement des agents pour les filtres.
   const { data: agents = [] } = useQuery({
     queryKey: queryKeys.agents.options,
     queryFn: agentsService.getOptions,
@@ -57,6 +69,7 @@ export default function TransactionsPage() {
     staleTime: 5 * 60_000,
   });
 
+  // Chargement des transactions.
   const {
     data: txData,
     isLoading,
@@ -83,6 +96,7 @@ export default function TransactionsPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <ExportExcelButton type="transactions" />
+
             {canManage && (
               <Link href="/crm/transactions/new">
                 <Button>
@@ -95,23 +109,35 @@ export default function TransactionsPage() {
         }
       />
 
+      {/* Filtres */}
       <Card>
         <CardHeader>
           <CardTitle>Filtres</CardTitle>
         </CardHeader>
+
         <CardContent className="pt-0">
           <TransactionsFiltersBar
             filters={filters}
             agents={agents}
             canManage={canManage}
             onChange={updateFilters}
-            onReset={() => setFilters({ page: 1, limit: DEFAULT_LIMIT })}
+            onReset={() =>
+              setFilters({
+                page: 1,
+                limit: DEFAULT_LIMIT,
+              })
+            }
           />
         </CardContent>
       </Card>
 
+      {/* Liste des transactions */}
       <Card
-        className={isFetching && !isLoading ? 'opacity-70 transition-opacity' : ''}
+        className={
+          isFetching && !isLoading
+            ? 'opacity-70 transition-opacity'
+            : ''
+        }
       >
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -119,6 +145,7 @@ export default function TransactionsPage() {
             Liste ({total})
           </CardTitle>
         </CardHeader>
+
         <CardContent>
           {isLoading ? (
             <TransactionsTableSkeleton />
@@ -127,7 +154,11 @@ export default function TransactionsPage() {
               <p className="text-sm text-destructive">
                 {getErrorMessage(error)}
               </p>
-              <Button variant="outline" onClick={() => refetch()}>
+
+              <Button
+                variant="outline"
+                onClick={() => refetch()}
+              >
                 Réessayer
               </Button>
             </div>
@@ -139,16 +170,25 @@ export default function TransactionsPage() {
             />
           ) : (
             <>
-<TransactionsTable
-  items={rows}
-  canManage={canManage}
-  canDelete={user?.role === 'ADMIN'}
-/>              {meta && meta.total > 0 && (
+              <TransactionsTable
+                items={rows}
+                canManage={canManage}
+                canDelete={canDelete}
+              />
+
+              {meta && meta.total > 0 && (
                 <div className="border-t border-border px-6 py-4">
                   <DataTablePagination
                     meta={meta}
-                    onPage={(page) => setFilters({ ...filters, page })}
-                    onLimit={(limit) => updateFilters({ limit })}
+                    onPage={(page) =>
+                      setFilters((current) => ({
+                        ...current,
+                        page,
+                      }))
+                    }
+                    onLimit={(limit) =>
+                      updateFilters({ limit })
+                    }
                   />
                 </div>
               )}
