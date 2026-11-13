@@ -153,10 +153,8 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
 
         <div className="container mx-auto w-full min-w-0 px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
           <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-
             {/* Contenu principal */}
             <div className="min-w-0 animate-fade-up space-y-6 lg:col-span-2 lg:space-y-8">
-
               {/* Galerie principale */}
               <div className="relative w-full min-w-0 overflow-hidden rounded-xl bg-slate-100 sm:rounded-2xl">
                 <div
@@ -299,9 +297,7 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
                           : 'border-transparent hover:border-slate-300'
                       }`}
                       aria-label={`Voir l'image ${i + 1}`}
-                      aria-current={
-                        i === currentImageIndex ? 'true' : 'false'
-                      }
+                      aria-current={i === currentImageIndex ? 'true' : 'false'}
                     >
                       <Image
                         src={image.url}
@@ -536,7 +532,7 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
               {/* Contact agent */}
               <div className="min-w-0 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50/60 p-4 transition-shadow duration-500 hover:shadow-lg sm:p-6">
                 <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
-                  Contactez l'agent
+                  Contactez l&apos;agent
                 </h2>
 
                 <p className="mt-2 break-words text-sm text-slate-600 sm:text-base">
@@ -552,9 +548,7 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
                       asChild
                       className="w-full bg-slate-900 hover:bg-slate-800 min-[420px]:w-auto"
                     >
-                      <a
-                        href={`tel:${agencyPhone.replace(/[^\d+]/g, '')}`}
-                      >
+                      <a href={`tel:${agencyPhone.replace(/[^\d+]/g, '')}`}>
                         <Phone className="mr-2 h-4 w-4" />
                         Appeler
                       </a>
@@ -731,7 +725,7 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
 
                     <div className="flex min-w-0 items-start justify-between gap-3 border-t border-slate-200 pt-4">
                       <dt className="shrink-0 text-sm text-slate-600">
-                        Date d'ajout
+                        Date d&apos;ajout
                       </dt>
                       <dd className="min-w-0 text-right text-sm font-medium text-slate-900">
                         {new Date(property.createdAt).toLocaleDateString(
@@ -750,7 +744,7 @@ export function PropertyDetail({ property, agencyPhone }: PropertyDetailProps) {
                     >
                       <Link href={`/contact?property=${property.id}`}>
                         <Phone className="mr-2 h-4 w-4" />
-                        Contacter l'agence
+                        Contacter l&apos;agence
                       </Link>
                     </Button>
 
