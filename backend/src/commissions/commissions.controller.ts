@@ -1,95 +1,86 @@
+
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
   Post,
   Put,
   Delete,
-  Body,
   Param,
   Query,
   UseGuards,
-  HttpCode,
-  HttpStatus,
 } from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiParam,
-  ApiQuery,
-  ApiResponse,
-} from "@nestjs/swagger";
+
 import { CommissionsService } from "./commissions.service";
-import { CreateCommissionDto } from "./dto/create-commission.dto";
-import { UpdateCommissionDto } from "./dto/update-commission.dto";
+
+import { UpdateCommissionConfigDto } from "./dto/update-commission-config.dto";
 import { CommissionFilterDto } from "./dto/commission-filter.dto";
 import { CommissionStatsDto } from "./dto/commission-stats.dto";
-import { UpdateCommissionConfigDto } from "./dto/update-commission-config.dto";
-import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
-import { RolesGuard } from "../common/guards/roles.guard";
+import { CreateCommissionDto } from "./dto/create-commission.dto";
+import { UpdateCommissionDto } from "./dto/update-commission.dto";
+
 import { Roles } from "../common/decorators/roles.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
+
+import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
+import { RolesGuard } from "../common/guards/roles.guard";
+
 import { Role } from "../common/enums/role.enum";
 
-@ApiTags("Commissions")
-@ApiBearerAuth("JWT")
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("commissions")
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CommissionsController {
-  constructor(private service: CommissionsService) {}
+  constructor(
+    private readonly commissionsService: CommissionsService,
+  ) {}
 
+  // GET /commissions
   @Get()
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiOperation({ summary: "Liste des commissions (pagination, filtres)" })
-  @ApiResponse({ status: 200, description: "Liste paginée" })
-  findAll(@Query() filter: CommissionFilterDto, @CurrentUser() user: any) {
-    return this.service.findAll(filter, user);
+  findAll(
+    @Query() query: CommissionFilterDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.commissionsService.findAll(query, user);
   }
 
+  // GET /commissions/stats
   @Get("stats")
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiOperation({ summary: "Statistiques des commissions" })
-  getStats(@Query() filter: CommissionStatsDto, @CurrentUser() user: any) {
-    return this.service.getStats(filter, user);
+  getStats(
+    @Query() filter: CommissionStatsDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.commissionsService.getStats(filter, user);
   }
 
+  // GET /commissions/config
   @Get("config")
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiOperation({
-    summary: "Configuration des taux de commission",
-    description:
-      "Défauts : acheteur 2 %, vendeur 2 %. Total = montant × (taux acheteur + taux vendeur). Agence = total × (1 − part terrain − part bureau).",
-  })
   getConfig() {
-    return this.service.getConfig();
+    return this.commissionsService.getConfig();
   }
 
+  // PUT /commissions/config
   @Put("config")
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({ summary: "Modifier les taux de commission (ADMIN/MANAGER)" })
-  updateConfig(@Body() dto: UpdateCommissionConfigDto) {
-    return this.service.updateConfig(dto);
+  updateConfig(
+    @Body() dto: UpdateCommissionConfigDto,
+  ) {
+    return this.commissionsService.updateConfig(dto);
   }
 
+  // GET /commissions/default-rates
   @Get("default-rates")
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiOperation({ summary: "Alias de GET /commissions/config (rétrocompatibilité)" })
   getDefaultRates() {
-    return this.service.getConfig();
+    return this.commissionsService.getDefaultRates();
   }
 
+  // GET /commissions/calculate-preview
   @Get("calculate-preview")
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiOperation({
-    summary: "Simuler le calcul de commission sans enregistrement",
-    description:
-      "Ex. amount=250000, buyer=0.02, seller=0.02 → buyerAmount=5000, sellerAmount=5000, amount=10000",
-  })
-  @ApiQuery({ name: "amount", type: Number, required: true, example: 250000 })
-  @ApiQuery({ name: "buyerCommissionRate", type: Number, required: false, example: 0.02 })
-  @ApiQuery({ name: "sellerCommissionRate", type: Number, required: false, example: 0.02 })
-  @ApiQuery({ name: "fieldAgentShareRate", type: Number, required: false, example: 0.3 })
-  @ApiQuery({ name: "officeAgentShareRate", type: Number, required: false, example: 0.2 })
   calculatePreview(
     @Query("amount") amount: string,
     @Query("buyerCommissionRate") buyer?: string,
@@ -97,52 +88,90 @@ export class CommissionsController {
     @Query("fieldAgentShareRate") field?: string,
     @Query("officeAgentShareRate") office?: string,
   ) {
-    const num = (v?: string) => (v !== undefined && v !== "" ? parseFloat(v) : undefined);
-    return this.service.calculatePreview(parseFloat(amount), {
-      buyerCommissionRate: num(buyer),
-      sellerCommissionRate: num(seller),
-      fieldAgentShareRate: num(field),
-      officeAgentShareRate: num(office),
-    });
+    const transactionAmount = Number(amount);
+
+    if (
+      amount === undefined ||
+      amount.trim() === "" ||
+      !Number.isFinite(transactionAmount) ||
+      transactionAmount < 0
+    ) {
+      throw new BadRequestException(
+        "Le montant de la transaction est invalide",
+      );
+    }
+
+    const parseRate = (
+      value?: string,
+    ): number | undefined => {
+      if (value === undefined || value.trim() === "") {
+        return undefined;
+      }
+
+      const parsed = Number(value);
+
+      if (
+        !Number.isFinite(parsed) ||
+        parsed < 0 ||
+        parsed > 1
+      ) {
+        throw new BadRequestException(
+          "Les taux doivent être compris entre 0 et 1",
+        );
+      }
+
+      return parsed;
+    };
+
+    return this.commissionsService.calculatePreview(
+      transactionAmount,
+      {
+        buyerCommissionRate: parseRate(buyer),
+        sellerCommissionRate: parseRate(seller),
+        fieldAgentShareRate: parseRate(field),
+        officeAgentShareRate: parseRate(office),
+      },
+    );
   }
 
+  // GET /commissions/:id
   @Get(":id")
   @Roles(Role.ADMIN, Role.MANAGER, Role.AGENT)
-  @ApiParam({ name: "id" })
-  @ApiOperation({ summary: "Détail d'une commission" })
-  findOne(@Param("id") id: string, @CurrentUser() user: any) {
-    return this.service.findOne(id, user);
+  findOne(
+    @Param("id") id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.commissionsService.findOne(id, user);
   }
 
+  // POST /commissions
   @Post()
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({
-    summary: "Créer une commission pour une transaction",
-    description:
-      "Les montants buyerAmount, sellerAmount, agencyAmount, fieldAgentAmount et officeAgentAmount sont calculés automatiquement.",
-  })
-  create(@Body() dto: CreateCommissionDto, @CurrentUser() user: any) {
-    return this.service.create(dto, user);
+  create(
+    @Body() dto: CreateCommissionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.commissionsService.create(dto, user);
   }
 
+  // PUT /commissions/:id
   @Put(":id")
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiParam({ name: "id" })
-  @ApiOperation({ summary: "Mettre à jour une commission (taux, statut de paiement)" })
   update(
     @Param("id") id: string,
     @Body() dto: UpdateCommissionDto,
     @CurrentUser() user: any,
   ) {
-    return this.service.update(id, dto, user);
+    return this.commissionsService.update(id, dto, user);
   }
 
+  // DELETE /commissions/:id
   @Delete(":id")
-  @Roles(Role.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiParam({ name: "id" })
-  @ApiOperation({ summary: "Supprimer une commission (ADMIN)" })
-  remove(@Param("id") id: string, @CurrentUser() user: any) {
-    return this.service.remove(id, user);
+  @Roles(Role.ADMIN, Role.MANAGER)
+  remove(
+    @Param("id") id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.commissionsService.remove(id, user);
   }
 }

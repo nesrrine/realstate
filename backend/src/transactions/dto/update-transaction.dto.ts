@@ -1,22 +1,40 @@
-import { IsOptional, IsString, IsNumber, Min, IsDateString, IsEnum } from "class-validator";
+
+import {
+  IsOptional,
+  IsString,
+  IsNumber,
+  Min,
+  IsDateString,
+  IsEnum,
+} from "class-validator";
+
 import { Type } from "class-transformer";
+
 import { ApiPropertyOptional } from "@nestjs/swagger";
+
 import { TransactionStatus } from "@prisma/client";
 
 export class UpdateTransactionDto {
-  @ApiPropertyOptional({ example: 250000 })
+  @ApiPropertyOptional({
+    example: 250000,
+    description: "Nouveau montant de la transaction",
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   amount?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: "Nouvelle date de transaction",
+  })
   @IsOptional()
   @IsDateString()
   date?: string;
 
-  @ApiPropertyOptional({ enum: TransactionStatus })
+  @ApiPropertyOptional({
+    enum: TransactionStatus,
+  })
   @IsOptional()
   @IsEnum(TransactionStatus)
   status?: TransactionStatus;
@@ -26,12 +44,16 @@ export class UpdateTransactionDto {
   @IsString()
   notes?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: "Nouvel agent terrain",
+  })
   @IsOptional()
   @IsString()
   fieldAgentId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: "Nouvel agent bureau",
+  })
   @IsOptional()
   @IsString()
   officeAgentId?: string;

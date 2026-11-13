@@ -1,21 +1,29 @@
+
 export interface CommissionCalculation {
-  commissionRate: number; // taux global = acheteur + vendeur
+  commissionRate: number;
+
   buyerCommissionRate: number;
   sellerCommissionRate: number;
+
   fieldAgentShareRate: number;
   officeAgentShareRate: number;
+
   buyerAmount: number;
   sellerAmount: number;
-  amount: number; // buyerAmount + sellerAmount
+  amount: number;
+
   agencyAmount: number;
   fieldAgentAmount: number;
   officeAgentAmount: number;
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
-const round4 = (n: number) => Math.round(n * 1e4) / 1e4;
+const round2 = (n: number): number =>
+  Math.round((n + Number.EPSILON) * 100) / 100;
 
-function assertRate(name: string, value: number) {
+const round4 = (n: number): number =>
+  Math.round((n + Number.EPSILON) * 10000) / 10000;
+
+function assertRate(name: string, value: number): void {
   if (!Number.isFinite(value) || value < 0 || value > 1) {
     throw new Error(`${name} doit être compris entre 0 et 1`);
   }
@@ -28,34 +36,70 @@ export function calculateCommissionAmounts(
   fieldAgentShareRate: number,
   officeAgentShareRate: number,
 ): CommissionCalculation {
-  if (!Number.isFinite(transactionAmount) || transactionAmount < 0) {
+  // Vérification du montant
+  if (
+    !Number.isFinite(transactionAmount) ||
+    transactionAmount < 0
+  ) {
     throw new Error("Le montant de la transaction est invalide");
   }
+
+  // Vérification des taux
   assertRate("Le taux acheteur", buyerCommissionRate);
   assertRate("Le taux vendeur", sellerCommissionRate);
   assertRate("La part agent terrain", fieldAgentShareRate);
   assertRate("La part agent bureau", officeAgentShareRate);
 
+  // Les parts des agents ne peuvent pas dépasser 100 %
   if (fieldAgentShareRate + officeAgentShareRate > 1) {
-    throw new Error("La somme des parts agents ne peut pas dépasser 1");
+    throw new Error(
+      "La somme des parts agents ne peut pas dépasser 100 %",
+    );
   }
 
-  const buyerAmount = round2(transactionAmount * buyerCommissionRate);
-  const sellerAmount = round2(transactionAmount * sellerCommissionRate);
+  // 1. Commission acheteur
+  const buyerAmount = round2(
+    transactionAmount * buyerCommissionRate,
+  );
+
+  // 2. Commission vendeur
+  const sellerAmount = round2(
+    transactionAmount * sellerCommissionRate,
+  );
+
+  // 3. Commission totale
   const amount = round2(buyerAmount + sellerAmount);
-  const fieldAgentAmount = round2(amount * fieldAgentShareRate);
-  const officeAgentAmount = round2(amount * officeAgentShareRate);
-  const agencyAmount = round2(amount - fieldAgentAmount - officeAgentAmount);
+
+  // 4. Part agent terrain
+  const fieldAgentAmount = round2(
+    amount * fieldAgentShareRate,
+  );
+
+  // 5. Part agent bureau
+  const officeAgentAmount = round2(
+    amount * officeAgentShareRate,
+  );
+
+  // 6. Part restante pour l'agence
+  const agencyAmount = round2(
+    amount - fieldAgentAmount - officeAgentAmount,
+  );
 
   return {
-    commissionRate: round4(buyerCommissionRate + sellerCommissionRate),
+    commissionRate: round4(
+      buyerCommissionRate + sellerCommissionRate,
+    ),
+
     buyerCommissionRate,
     sellerCommissionRate,
+
     fieldAgentShareRate,
     officeAgentShareRate,
+
     buyerAmount,
     sellerAmount,
     amount,
+
     agencyAmount,
     fieldAgentAmount,
     officeAgentAmount,
