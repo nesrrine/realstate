@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -33,9 +34,16 @@ import {
 } from "@/components/ui/select";
 
 const schema = z.object({
-  amount: z.coerce.number().positive("Le montant doit être supérieur à zéro"),
+  amount: z.coerce
+    .number()
+    .positive("Le montant doit être supérieur à zéro"),
   date: z.string().optional(),
-  status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
+  status: z.enum([
+    "PENDING",
+    "IN_PROGRESS",
+    "COMPLETED",
+    "CANCELLED",
+  ]),
   notes: z.string().optional(),
   fieldAgentId: z.string().min(1, "Agent terrain requis"),
   officeAgentId: z.string().min(1, "Agent bureau requis"),
@@ -43,7 +51,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-function formatDt(value: number | string | undefined | null) {
+function formatDt(value: number | string | undefined | null): string {
   const number = Number(value ?? 0);
 
   return new Intl.NumberFormat("fr-TN", {
@@ -51,27 +59,21 @@ function formatDt(value: number | string | undefined | null) {
   }).format(Number.isFinite(number) ? number : 0);
 }
 
-function getDateInputValue(value?: string | null) {
+function getDateInputValue(value?: string | null): string {
   if (!value) return "";
 
-  // Une date ISO provenant de l'API.
   if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
     return value.slice(0, 10);
   }
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return "";
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
 
   return date.toISOString().slice(0, 10);
 }
-
-const statusLabels: Record<string, string> = {
-  PENDING: "En attente",
-  IN_PROGRESS: "En cours",
-  COMPLETED: "Finalisée",
-  CANCELLED: "Annulée",
-};
 
 export function TransactionEditForm({ id }: { id: string }) {
   const router = useRouter();
@@ -95,24 +97,30 @@ export function TransactionEditForm({ id }: { id: string }) {
     },
   });
 
-  // Charger la transaction à modifier.
+  // Chargement de la transaction.
   const {
     data: transaction,
     isLoading,
+    isError,
     error,
   } = useQuery({
     queryKey: ["transaction", id],
     queryFn: () => transactionsService.getById(id),
-    enabled: !!id,
+    enabled: Boolean(id),
   });
 
-  // Charger les agents disponibles.
-  const { data: agents = [], isLoading: agentsLoading } = useQuery({
+  // Chargement des agents.
+  const {
+    data: agents = [],
+    isLoading: agentsLoading,
+    isError: agentsError,
+  } = useQuery({
     queryKey: ["agents", "options"],
-    queryFn: () => agentsService.getOptions(),
+    queryFn: agentsService.getOptions,
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Préremplir le formulaire dès réception de la transaction.
+  // Préremplissage du formulaire.
   useEffect(() => {
     if (!transaction) return;
 
@@ -126,6 +134,7 @@ export function TransactionEditForm({ id }: { id: string }) {
     });
   }, [transaction, reset]);
 
+  // Modification de la transaction.
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
       const payload: UpdateTransactionDto = {
@@ -163,27 +172,35 @@ export function TransactionEditForm({ id }: { id: string }) {
     },
   });
 
+  const onSubmit = (values: FormValues) => {
+    mutation.mutate(values);
+  };
+
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="flex items-center gap-2 text-muted-foreground py-8">
         <Loader2 className="h-5 w-5 animate-spin" />
         Chargement de la transaction...
       </div>
     );
   }
 
-  if (error || !transaction) {
+  if (isError || !transaction) {
     return (
       <Card>
-        <CardContent className="py-6 space-y-4">
-          <p className="text-destructive">
-            Impossible de charger cette transaction.
+        <CardContent className="space-y-4 py-6">
+          <p className="text-sm text-destructive">
+            {error
+              ? getErrorMessage(error)
+              : "Impossible de charger cette transaction."}
           </p>
 
           <Button
+            type="button"
             variant="outline"
             onClick={() => router.push("/crm/transactions")}
           >
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Retour aux transactions
           </Button>
         </CardContent>
@@ -195,16 +212,14 @@ export function TransactionEditForm({ id }: { id: string }) {
     transaction.commission?.paymentStatus === "PAID";
 
   return (
-    <form
-      onSubmit={handleSubmit((values) => mutation.mutate(values))}
-      className="space-y-6"
-    >
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Informations principales */}
       <Card>
         <CardHeader>
           <CardTitle>Informations de la transaction</CardTitle>
           <CardDescription>
             Les informations du bien, du client et le type de transaction
-            sont conservés.
+            sont conservés. Seuls les champs autorisés sont modifiables.
           </CardDescription>
         </CardHeader>
 
@@ -230,7 +245,7 @@ export function TransactionEditForm({ id }: { id: string }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Type</Label>
+            <Label>Type de transaction</Label>
             <Input
               value={transaction.type === "SALE" ? "Vente" : "Location"}
               disabled
@@ -238,13 +253,15 @@ export function TransactionEditForm({ id }: { id: string }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Montant (DT) *</Label>
+            <Label htmlFor="amount">Montant (DT) *</Label>
             <Input
+              id="amount"
               type="number"
               min="0.01"
               step="0.01"
               {...register("amount")}
             />
+
             {errors.amount && (
               <p className="text-sm text-destructive">
                 {errors.amount.message}
@@ -253,8 +270,12 @@ export function TransactionEditForm({ id }: { id: string }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Date</Label>
-            <Input type="date" {...register("date")} />
+            <Label htmlFor="date">Date</Label>
+            <Input
+              id="date"
+              type="date"
+              {...register("date")}
+            />
           </div>
 
           <div className="space-y-2">
@@ -273,10 +294,18 @@ export function TransactionEditForm({ id }: { id: string }) {
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="PENDING">En attente</SelectItem>
-                    <SelectItem value="IN_PROGRESS">En cours</SelectItem>
-                    <SelectItem value="COMPLETED">Finalisée</SelectItem>
-                    <SelectItem value="CANCELLED">Annulée</SelectItem>
+                    <SelectItem value="PENDING">
+                      En attente
+                    </SelectItem>
+                    <SelectItem value="IN_PROGRESS">
+                      En cours
+                    </SelectItem>
+                    <SelectItem value="COMPLETED">
+                      Finalisée
+                    </SelectItem>
+                    <SelectItem value="CANCELLED">
+                      Annulée
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -285,11 +314,12 @@ export function TransactionEditForm({ id }: { id: string }) {
         </CardContent>
       </Card>
 
+      {/* Affectation des agents */}
       <Card>
         <CardHeader>
           <CardTitle>Affectation des agents</CardTitle>
           <CardDescription>
-            Tu peux modifier les agents associés à cette transaction.
+            Modifier les agents associés à cette transaction.
           </CardDescription>
         </CardHeader>
 
@@ -304,7 +334,7 @@ export function TransactionEditForm({ id }: { id: string }) {
                 <Select
                   value={field.value}
                   onValueChange={field.onChange}
-                  disabled={agentsLoading}
+                  disabled={agentsLoading || agentsError}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choisir un agent terrain" />
@@ -338,7 +368,7 @@ export function TransactionEditForm({ id }: { id: string }) {
                 <Select
                   value={field.value}
                   onValueChange={field.onChange}
-                  disabled={agentsLoading}
+                  disabled={agentsLoading || agentsError}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choisir un agent bureau" />
@@ -361,12 +391,23 @@ export function TransactionEditForm({ id }: { id: string }) {
               </p>
             )}
           </div>
+
+          {agentsError && (
+            <p className="text-sm text-destructive md:col-span-2">
+              Impossible de charger la liste des agents. Réessaie de
+              recharger la page.
+            </p>
+          )}
         </CardContent>
       </Card>
 
+      {/* Notes */}
       <Card>
         <CardHeader>
           <CardTitle>Notes</CardTitle>
+          <CardDescription>
+            Ajouter des informations complémentaires.
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -377,6 +418,7 @@ export function TransactionEditForm({ id }: { id: string }) {
         </CardContent>
       </Card>
 
+      {/* Commission */}
       {transaction.commission && (
         <Card>
           <CardHeader>
@@ -386,47 +428,63 @@ export function TransactionEditForm({ id }: { id: string }) {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between">
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">
                 Commission totale
               </span>
-              <strong>{formatDt(transaction.commission.amount)} DT</strong>
+
+              <strong>
+                {formatDt(transaction.commission.amount)} DT
+              </strong>
             </div>
 
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Paiement</span>
-              <strong>{transaction.commission.paymentStatus}</strong>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">
+                Statut du paiement
+              </span>
+
+              <strong>
+                {transaction.commission.paymentStatus}
+              </strong>
             </div>
 
             {commissionPaid && (
               <p className="text-amber-600">
-                Cette commission est déjà payée. Le backend doit empêcher
-                toute modification incompatible avec ce paiement.
+                Cette commission est déjà payée. Toute modification
+                incompatible avec ce paiement doit être bloquée par
+                le backend.
               </p>
             )}
           </CardContent>
         </Card>
       )}
 
+      {/* Actions */}
       <div className="flex flex-wrap gap-3">
         <Button
           type="button"
           variant="outline"
           onClick={() => router.push(`/crm/transactions/${id}`)}
+          disabled={mutation.isPending}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Annuler
         </Button>
 
-        <Button type="submit" disabled={mutation.isPending || agentsLoading}>
+        <Button
+          type="submit"
+          disabled={mutation.isPending || agentsLoading || agentsError}
+        >
           {mutation.isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
 
-          Enregistrer les modifications
+          {mutation.isPending
+            ? "Enregistrement..."
+            : "Enregistrer les modifications"}
         </Button>
       </div>
     </form>
