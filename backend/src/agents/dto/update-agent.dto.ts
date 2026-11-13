@@ -1,4 +1,11 @@
-import { IsOptional, IsString, MinLength, IsEnum } from "class-validator";
+
+import {
+  IsOptional,
+  IsString,
+  MinLength,
+  IsEnum,
+} from "class-validator";
+
 import { AgentType } from "./create-agent.dto";
 
 export class UpdateAgentDto {
