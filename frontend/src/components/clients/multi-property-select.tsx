@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import {
   Check,
   ChevronDown,
-  Plus,
   X,
   Search,
   SlidersHorizontal,
@@ -69,7 +68,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 function toNumber(value: number | string | undefined): number {
   if (value === undefined || value === "") return 0;
+
   const parsed = Number(String(value).replace(/\s/g, "").replace(",", "."));
+
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -111,14 +112,21 @@ export function MultiPropertySelect({
           options
             .filter((o) => city === "ALL" || o.city === city)
             .map((o) => o.district)
-            .filter((d): d is string => !!d),
+            .filter((d): d is string => Boolean(d)),
         ),
       ).sort(),
     [options, city],
   );
 
   const types = useMemo(
-    () => Array.from(new Set(options.map((o) => o.type).filter(Boolean))),
+    () =>
+      Array.from(
+        new Set(
+          options
+            .map((o) => o.type)
+            .filter((t): t is string => Boolean(t)),
+        ),
+      ),
     [options],
   );
 
@@ -138,19 +146,12 @@ export function MultiPropertySelect({
         .toLowerCase();
 
       if (query && !searchable.includes(query)) return false;
-
       if (type !== "ALL" && o.type !== type) return false;
-
-      if (
-        transactionType !== "ALL" &&
-        o.transactionType !== transactionType
-      )
+      if (transactionType !== "ALL" && o.transactionType !== transactionType) {
         return false;
-
+      }
       if (status !== "ALL" && o.status !== status) return false;
-
       if (city !== "ALL" && o.city !== city) return false;
-
       if (district !== "ALL" && o.district !== district) return false;
 
       const price = toNumber(o.price);
@@ -180,16 +181,16 @@ export function MultiPropertySelect({
   const selectedOptions = options.filter((o) => selected.includes(o.id));
 
   const hasFilters =
-    !!search ||
+    Boolean(search) ||
     type !== "ALL" ||
     transactionType !== "ALL" ||
     status !== "ALL" ||
     city !== "ALL" ||
     district !== "ALL" ||
-    !!priceMin ||
-    !!priceMax ||
-    !!surfaceMin ||
-    !!surfaceMax;
+    Boolean(priceMin) ||
+    Boolean(priceMax) ||
+    Boolean(surfaceMin) ||
+    Boolean(surfaceMax);
 
   const toggle = (id: string) => {
     onChange(
@@ -237,6 +238,7 @@ export function MultiPropertySelect({
                 ? placeholder
                 : `${selectedOptions.length} bien(s) sélectionné(s)`}
             </span>
+
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -267,6 +269,7 @@ export function MultiPropertySelect({
 
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -280,15 +283,17 @@ export function MultiPropertySelect({
                 <label className="text-xs text-muted-foreground">
                   Type de bien
                 </label>
+
                 <select
                   className={selectClass}
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >
                   <option value="ALL">Tous les types</option>
+
                   {types.map((t) => (
                     <option key={t} value={t}>
-                      {TYPE_LABELS[t!] ?? t}
+                      {TYPE_LABELS[t] ?? t}
                     </option>
                   ))}
                 </select>
@@ -298,6 +303,7 @@ export function MultiPropertySelect({
                 <label className="text-xs text-muted-foreground">
                   Transaction
                 </label>
+
                 <select
                   className={selectClass}
                   value={transactionType}
@@ -313,6 +319,7 @@ export function MultiPropertySelect({
                 <label className="text-xs text-muted-foreground">
                   Ville
                 </label>
+
                 <select
                   className={selectClass}
                   value={city}
@@ -322,8 +329,11 @@ export function MultiPropertySelect({
                   }}
                 >
                   <option value="ALL">Toutes les villes</option>
+
                   {cities.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -332,14 +342,18 @@ export function MultiPropertySelect({
                 <label className="text-xs text-muted-foreground">
                   Quartier / Délégation
                 </label>
+
                 <select
                   className={selectClass}
                   value={district}
                   onChange={(e) => setDistrict(e.target.value)}
                 >
                   <option value="ALL">Tous les quartiers</option>
+
                   {districts.map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -348,23 +362,26 @@ export function MultiPropertySelect({
                 <label className="text-xs text-muted-foreground">
                   Statut
                 </label>
+
                 <select
                   className={selectClass}
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                 >
                   <option value="ALL">Tous les statuts</option>
+
                   {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium">
-                Prix (DT)
-              </label>
+              <label className="text-xs font-medium">Prix (DT)</label>
+
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   type="number"
@@ -374,6 +391,7 @@ export function MultiPropertySelect({
                   onChange={(e) => setPriceMin(e.target.value)}
                   className="h-9"
                 />
+
                 <Input
                   type="number"
                   min="0"
@@ -386,9 +404,8 @@ export function MultiPropertySelect({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium">
-                Surface (m²)
-              </label>
+              <label className="text-xs font-medium">Surface (m²)</label>
+
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   type="number"
@@ -398,6 +415,7 @@ export function MultiPropertySelect({
                   onChange={(e) => setSurfaceMin(e.target.value)}
                   className="h-9"
                 />
+
                 <Input
                   type="number"
                   min="0"
@@ -466,12 +484,15 @@ export function MultiPropertySelect({
                       </span>
 
                       <span className="block text-xs text-muted-foreground mt-1">
-                        {TYPE_LABELS[option.type ?? ""] ?? option.type ?? "Bien"} 
+                        {TYPE_LABELS[option.type ?? ""] ??
+                          option.type ??
+                          "Bien"}
                         {" · "}
                         {TRANSACTION_LABELS[option.transactionType ?? ""] ?? ""}
                         {" · "}
                         {formatPrice(option.price)} DT
-                        {option.surface && ` · ${formatPrice(option.surface)} m²`}
+                        {option.surface &&
+                          ` · ${formatPrice(option.surface)} m²`}
                       </span>
                     </span>
 
@@ -505,9 +526,8 @@ export function MultiPropertySelect({
       {selectedOptions.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium">
-              Biens sélectionnés
-            </span>
+            <span className="text-xs font-medium">Biens sélectionnés</span>
+
             <Button
               type="button"
               variant="ghost"
@@ -529,6 +549,7 @@ export function MultiPropertySelect({
                 <span className="text-xs truncate max-w-[150px]">
                   {option.title}
                 </span>
+
                 <button
                   type="button"
                   aria-label={`Retirer ${option.title}`}
