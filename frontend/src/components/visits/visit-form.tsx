@@ -1,14 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Save, UserPlus } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  Mail,
+  Phone,
+  Save,
+  Search,
+  UserPlus,
+  UserRound,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +30,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -88,6 +103,339 @@ const newClientSchema = z.object({
 });
 
 type NewClientForm = z.infer<typeof newClientSchema>;
+
+// ── Sélecteur de client (intégré dans ce fichier) ────────────────
+function cn(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
+interface ClientOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  email?: string | null;
+  cinOrPassport?: string | null;
+  status?: string | null; // PROSPECT | CLIENT
+}
+
+interface ClientSelectProps {
+  options: ClientOption[];
+  value: string;
+  onChange: (id: string) => void;
+  placeholder?: string;
+  searchPlaceholder?: string;
+}
+
+const CLIENT_STATUS_LABELS: Record<string, string> = {
+  CLIENT: "Client",
+  PROSPECT: "Prospect",
+};
+
+const CLIENT_STATUS_STYLES: Record<string, string> = {
+  CLIENT:
+    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900",
+  PROSPECT:
+    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+};
+
+function initials(c: { firstName: string; lastName: string }): string {
+  return `${c.firstName?.[0] ?? ""}${c.lastName?.[0] ?? ""}`.toUpperCase() || "?";
+}
+
+function StatusPill({ status }: { status?: string | null }) {
+  if (!status) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none",
+        CLIENT_STATUS_STYLES[status] ?? "bg-muted text-muted-foreground border-border",
+      )}
+    >
+      {CLIENT_STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
+function Avatar({
+  client,
+  active,
+  className,
+}: {
+  client: { firstName: string; lastName: string };
+  active?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-primary/10 text-primary",
+        className,
+      )}
+    >
+      {initials(client)}
+    </span>
+  );
+}
+
+function ClientSelect({
+  options,
+  value,
+  onChange,
+  placeholder = "Sélectionner un client...",
+  searchPlaceholder = "Rechercher par nom, téléphone, email, CNI...",
+}: ClientSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("ALL");
+
+  const selectedOption = options.find((o) => o.id === value);
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const queryDigits = query.replace(/\s/g, "");
+
+    return options.filter((o) => {
+      if (status !== "ALL" && o.status !== status) return false;
+      if (!query) return true;
+
+      const text = [o.firstName, o.lastName, o.email, o.cinOrPassport]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const phone = (o.phone ?? "").replace(/\s/g, "");
+
+      return (
+        text.includes(query) ||
+        `${o.lastName} ${o.firstName}`.toLowerCase().includes(query) ||
+        (queryDigits.length > 0 && phone.includes(queryDigits))
+      );
+    });
+  }, [options, search, status]);
+
+  const hasFilters = Boolean(search) || status !== "ALL";
+
+  const resetFilters = () => {
+    setSearch("");
+    setStatus("ALL");
+  };
+
+  const pick = (id: string) => {
+    onChange(id);
+    setOpen(false);
+  };
+
+  const chipBase =
+    "rounded-full border px-3 py-1 text-xs font-medium transition-colors";
+  const chipOn = "border-primary bg-primary text-primary-foreground";
+  const chipOff =
+    "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "flex min-h-12 w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left transition-all",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+            value
+              ? "border-primary/40 bg-primary/5 hover:border-primary"
+              : "border-dashed border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5",
+            open && "border-primary ring-2 ring-primary/20",
+          )}
+        >
+          {value ? (
+            <Avatar
+              client={selectedOption ?? { firstName: "", lastName: "" }}
+              active
+              className="h-8 w-8"
+            />
+          ) : (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <UserRound className="h-4 w-4" />
+            </span>
+          )}
+
+          <span className="min-w-0 flex-1">
+            {value ? (
+              <>
+                <span className="block truncate text-sm font-semibold">
+                  {selectedOption
+                    ? `${selectedOption.firstName} ${selectedOption.lastName}`
+                    : "Client sélectionné"}
+                </span>
+                {selectedOption?.phone && (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {selectedOption.phone}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="block truncate text-sm font-medium">
+                  {placeholder}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {options.length} client{options.length > 1 ? "s" : ""} dans la
+                  base
+                </span>
+              </>
+            )}
+          </span>
+
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        align="start"
+        sideOffset={8}
+        className="flex max-h-[min(80vh,560px)] w-[min(94vw,460px)] flex-col overflow-hidden rounded-xl border p-0 shadow-xl"
+      >
+        {/* ── En-tête : recherche + raccourcis ─────────────────── */}
+        <div className="space-y-3 border-b bg-muted/30 p-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-10 rounded-lg bg-background pl-9"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { value: "ALL", label: "Tous" },
+              { value: "CLIENT", label: "Clients" },
+              { value: "PROSPECT", label: "Prospects" },
+            ].map((chip) => (
+              <button
+                key={chip.value}
+                type="button"
+                onClick={() => setStatus(chip.value)}
+                className={cn(chipBase, status === chip.value ? chipOn : chipOff)}
+              >
+                {chip.label}
+              </button>
+            ))}
+
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="ml-auto text-xs font-medium text-destructive hover:underline"
+              >
+                Effacer
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Résultats ───────────────────────────────────────── */}
+        <div className="border-b px-3 py-2">
+          <span className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              {filtered.length}
+            </span>{" "}
+            résultat{filtered.length > 1 ? "s" : ""} sur {options.length}
+          </span>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <UserRound className="h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                Aucun client ne correspond à la recherche.
+              </p>
+              {hasFilters && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={resetFilters}
+                >
+                  Effacer les filtres
+                </Button>
+              )}
+            </div>
+          ) : (
+            filtered.map((option) => {
+              const isSelected = option.id === value;
+
+              return (
+                <button
+                  type="button"
+                  key={option.id}
+                  onClick={() => pick(option.id)}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "relative flex w-full items-center gap-3 overflow-hidden rounded-lg border p-2.5 text-left transition-all",
+                    isSelected
+                      ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/30"
+                      : "border-transparent bg-card hover:border-border hover:bg-accent/60",
+                  )}
+                >
+                  {isSelected && (
+                    <span className="absolute inset-y-0 left-0 w-1 bg-primary" />
+                  )}
+
+                  <Avatar
+                    client={option}
+                    active={isSelected}
+                    className="h-9 w-9"
+                  />
+
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-semibold">
+                        {option.firstName} {option.lastName}
+                      </span>
+                      <StatusPill status={option.status} />
+                    </span>
+
+                    <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      {option.phone && (
+                        <span className="inline-flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {option.phone}
+                        </span>
+                      )}
+                      {option.email && (
+                        <span className="inline-flex min-w-0 items-center gap-1">
+                          <Mail className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{option.email}</span>
+                        </span>
+                      )}
+                    </span>
+                  </span>
+
+                  {isSelected && (
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface Props {
   mode: "create" | "edit";
@@ -329,6 +677,21 @@ export function VisitForm({ mode, visit, prefill }: Props) {
     status: p.status,
   }));
 
+  // Clients actifs + le client déjà choisi (même s'il a été désactivé depuis)
+  // ⚠️ Adapter les noms de champs à ton type `Client` si besoin
+  // (phone, email, cinOrPassport, status).
+  const clientOptions: ClientOption[] = clients
+    .filter((c: Client) => c.isActive !== false || String(c.id) === selectedClientId)
+    .map((c: Client) => ({
+      id: String(c.id),
+      firstName: c.firstName,
+      lastName: c.lastName,
+      phone: c.phone ?? null,
+      email: c.email ?? null,
+      cinOrPassport: c.cinOrPassport ?? null,
+      status: c.status ?? null,
+    }));
+
   return (
     <form
       onSubmit={(e) => {
@@ -387,26 +750,14 @@ export function VisitForm({ mode, visit, prefill }: Props) {
                 </Label>
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
-                    <Select
+                    <ClientSelect
+                      options={clientOptions}
                       value={selectedClientId}
-                      onValueChange={(v) =>
-                        setValue("clientId", v, { shouldValidate: true })
+                      onChange={(id) =>
+                        setValue("clientId", id, { shouldValidate: true })
                       }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner un client..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {/* Clients actifs + le client déjà choisi (même s'il a été désactivé depuis) */}
-                        {clients
-                          .filter((c: Client) => c.isActive !== false || String(c.id) === selectedClientId)
-                          .map((c: Client) => (
-                            <SelectItem key={String(c.id)} value={String(c.id)}>
-                              {c.firstName} {c.lastName}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Sélectionner un client..."
+                    />
                   </div>
                   <Button
                     type="button"
