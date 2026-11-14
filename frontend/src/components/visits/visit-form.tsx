@@ -172,12 +172,26 @@ export function VisitForm({ mode, visit, prefill }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visit?.id, visit?.updatedAt, isEdit, reset]);
 
-  // Charger les biens
+  // Charger TOUS les biens (page par page, sans limite de 100)
   const { data: properties = [] } = useQuery({
-    queryKey: queryKeys.properties.list({ limit: 100 }),
+    queryKey: ["properties", "all-options"],
     queryFn: async () => {
-      const result = await propertiesService.getAll({ limit: 100 });
-      return result.data;
+      const pageSize = 100;
+      const all: Property[] = [];
+      let page = 1;
+      let totalPages = 1;
+
+      do {
+        const result = await propertiesService.getAll({
+          page,
+          limit: pageSize,
+        });
+        all.push(...result.data);
+        totalPages = result.meta?.totalPages ?? 1;
+        page += 1;
+      } while (page <= totalPages && page <= 200); // 200 = sécurité anti-boucle
+
+      return all;
     },
     staleTime: 60_000,
   });
