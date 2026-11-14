@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -680,7 +679,7 @@ export function ClientForm({ mode, client }: Props) {
                   </Select>
 
                   <p className="text-xs text-muted-foreground">
-                    Si aucun agent n'est sélectionné, l'assignation par défaut
+                    Si aucun agent n&apos;est sélectionné, l&apos;assignation par défaut
                     du backend sera appliquée.
                   </p>
                 </div>
