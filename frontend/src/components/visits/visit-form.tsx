@@ -42,7 +42,10 @@ import { agentsService, type AgentOption } from "@/services/agents.service";
 import { useAuth } from "@/providers/AuthProvider";
 import { queryKeys } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
-import { MultiPropertySelect } from "@/components/clients/multi-property-select";
+import {
+  MultiPropertySelect,
+  type PropertyOption,
+} from "@/components/clients/multi-property-select";
 import { VisitNumberBadge } from "@/components/visits/visit-number-badge";
 
 // Valeur sentinelle: Radix Select interdit <SelectItem value="" />
@@ -308,10 +311,20 @@ export function VisitForm({ mode, visit, prefill }: Props) {
     mutation.mutate(values);
   };
 
-  const propertyOptions = properties.map((p: Property) => ({
+  // ✅ CORRECTION : on transmet TOUS les champs utilisés par les filtres
+  // (type, transaction, quartier, surface, référence, adresse).
+  // ⚠️ Adapter les noms de champs à ton type `Property` si besoin
+  // (ex. p.transactionType → p.transaction, p.district → p.delegation).
+  const propertyOptions: PropertyOption[] = properties.map((p: Property) => ({
     id: String(p.id),
     title: p.title,
+    reference: p.reference ?? undefined,
+    address: p.address ?? undefined,
     city: p.city,
+    district: p.district ?? null,
+    type: p.type,
+    transactionType: p.transactionType,
+    surface: p.surface,
     price: p.price,
     status: p.status,
   }));
