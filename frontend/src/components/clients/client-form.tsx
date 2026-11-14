@@ -1,5 +1,7 @@
+
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -41,7 +43,10 @@ import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/providers/AuthProvider';
 import { fullName } from '@/lib/property-constants';
 
-// ── Validation Schema ────────────────────────────────────────────────
+// --------------------------------------------------
+// Validation
+// --------------------------------------------------
+
 const schema = z.object({
   firstName: z.string().min(2, 'Minimum 2 caractères'),
   lastName: z.string().min(2, 'Minimum 2 caractères'),
@@ -54,7 +59,13 @@ const schema = z.object({
   zipCode: z.string().optional(),
   professionalAddress: z.string().min(1, 'Adresse professionnelle requise'),
   clientType: z.enum(['BUYER', 'SELLER', 'RENTER']),
-  followUpStatus: z.enum(['TO_CONTACT', 'CONTACTED', 'NEGOTIATION', 'WON', 'LOST']).optional(),
+  followUpStatus: z.enum([
+    'TO_CONTACT',
+    'CONTACTED',
+    'NEGOTIATION',
+    'WON',
+    'LOST',
+  ]).optional(),
   nextFollowUpAt: z.string().optional(),
   status: z.enum(['PROSPECT', 'CLIENT']).optional(),
   budget: z.string().optional(),
@@ -72,108 +83,257 @@ interface Props {
   client?: Client;
 }
 
+const NONE = '__none__';
+
+const selectOptions = {
+  shouldDirty: true,
+  shouldValidate: true,
+};
+
+// --------------------------------------------------
+// Helpers
+// --------------------------------------------------
+
+function formatDateTimeLocal(
+  value?: string | number | Date | null,
+): string {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+
+  let date: Date;
+
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === 'number') {
+    date = new Date(value);
+  } else {
+    date = new Date(value);
+  }
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function getDefaultValues(client?: Client): FormValues {
+  return {
+    firstName: client?.firstName ?? '',
+    lastName: client?.lastName ?? '',
+    email: client?.email ?? '',
+    phone: client?.phone ?? '',
+    whatsapp: client?.whatsapp ?? '',
+    cinOrPassport: client?.cinOrPassport ?? '',
+    address: client?.address ?? '',
+    city: client?.city ?? '',
+    zipCode: client?.zipCode ?? '',
+    professionalAddress: client?.professionalAddress ?? '',
+    clientType: client?.clientType ?? 'BUYER',
+    status: client?.status ?? 'PROSPECT',
+    followUpStatus: client?.followUpStatus ?? 'TO_CONTACT',
+    nextFollowUpAt: formatDateTimeLocal(client?.nextFollowUpAt),
+    budget: client?.budget != null ? String(client.budget) : '',
+    notes: client?.notes ?? '',
+    agentId: client?.agent?.id != null
+      ? String(client.agent.id)
+      : client?.agentId != null
+        ? String(client.agentId)
+        : '',
+    financing: client?.financing ?? '',
+    needDescription: client?.needDescription ?? '',
+    fieldAgentId: client?.fieldAgent?.id != null
+      ? String(client.fieldAgent.id)
+      : client?.fieldAgentId != null
+        ? String(client.fieldAgentId)
+        : '',
+  };
+}
+
+// --------------------------------------------------
+// Component
+// --------------------------------------------------
+
 export function ClientForm({ mode, client }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const { user } = useAuth();
-  const isEdit = mode === 'edit';
-  const canPickAgent = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
-  const { data: agents = [] } = useQuery({
-    queryKey: ['agents', 'options'],
+  const isEdit = mode === 'edit';
+
+  const canPickAgent =
+    user?.role === 'ADMIN' || user?.role === 'MANAGER';
+
+  // --------------------------------------------------
+  // Agents
+  // --------------------------------------------------
+
+  const {
+    data: agents = [],
+    isLoading: isLoadingAgents,
+  } = useQuery({
+    queryKey: queryKeys.agents.options,
     queryFn: agentsService.getOptions,
-    // Liste aussi utile aux agents pour choisir l'agent terrain
     staleTime: 5 * 60_000,
   });
+
+  // --------------------------------------------------
+  // Form
+  // --------------------------------------------------
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      firstName: client?.firstName || '',
-      lastName: client?.lastName || '',
-      email: client?.email || '',
-      phone: client?.phone || '',
-      whatsapp: client?.whatsapp || '',
-      cinOrPassport: client?.cinOrPassport ?? '',
-      address: client?.address || '',
-      city: client?.city || '',
-      zipCode: client?.zipCode || '',
-      professionalAddress: client?.professionalAddress || '',
-      clientType: client?.clientType || 'BUYER',
-      status: client?.status || 'PROSPECT',
-      followUpStatus: client?.followUpStatus || 'TO_CONTACT',
-      nextFollowUpAt: client?.nextFollowUpAt || '',
-      budget: client?.budget ? String(client.budget) : '',
-      notes: client?.notes || '',
-      agentId: client?.agent?.id ?? client?.agentId ?? '',
-      financing: client?.financing ?? '',
-      needDescription: client?.needDescription ?? '',
-      fieldAgentId: client?.fieldAgent?.id ?? client?.fieldAgentId ?? '',
-    },
+    defaultValues: getDefaultValues(client),
   });
 
-  const mutation = useMutation({
-    mutationFn: async (values: FormValues) => {
-      const payload: Partial<CreateClientDto> = {
-        firstName: values.firstName,
-        lastName: values.lastName,
-        phone: values.phone,
-        clientType: values.clientType,
-        status: values.status,
-        followUpStatus: values.followUpStatus,
-        nextFollowUpAt: values.nextFollowUpAt || undefined,
-        budget: values.budget ? Number(values.budget) : undefined,
-        notes: values.notes,
-        whatsapp: values.whatsapp,
-        cinOrPassport: values.cinOrPassport,
-        address: values.address,
-        city: values.city,
-        zipCode: values.zipCode,
-        professionalAddress: values.professionalAddress,
-        ...(canPickAgent && values.agentId ? { agentId: values.agentId } : {}),
-        financing: values.financing || undefined,
-        needDescription: values.needDescription,
-        fieldAgentId: values.fieldAgentId || undefined,
-      };
-      // email optionnel : supprimer si vide
-      if (values.email) {
-        payload.email = values.email;
-      }
+  useEffect(() => {
+    if (isEdit && client) {
+      reset(getDefaultValues(client));
+    }
+  }, [client, isEdit, reset]);
 
-      if (isEdit && client) {
-        return clientsService.update(client.id, payload);
-      }
-      return clientsService.create(payload);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.clients.all });
-      toast.success(isEdit ? 'Client mis à jour' : 'Client créé');
-      router.push('/crm/clients');
-    },
-    onError: (e) => toast.error(getErrorMessage(e)),
-  });
+  // --------------------------------------------------
+  // Watched fields
+  // --------------------------------------------------
 
   const clientType = watch('clientType');
   const status = watch('status');
   const followUpStatusVal = watch('followUpStatus');
   const agentId = watch('agentId');
+  const financing = watch('financing');
+  const fieldAgentId = watch('fieldAgentId');
+
+  // --------------------------------------------------
+  // Mutation
+  // --------------------------------------------------
+
+  const mutation = useMutation({
+    mutationFn: async (values: FormValues) => {
+      const nextFollowUpAt = values.nextFollowUpAt?.trim()
+        ? new Date(values.nextFollowUpAt).toISOString()
+        : undefined;
+
+      const budget = values.budget?.trim()
+        ? Number(values.budget)
+        : undefined;
+
+      const payload: Partial<CreateClientDto> = {
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        phone: values.phone.trim(),
+        clientType: values.clientType,
+        status: values.status,
+        followUpStatus: values.followUpStatus,
+        nextFollowUpAt,
+        budget,
+        notes: values.notes?.trim() || undefined,
+        whatsapp: values.whatsapp?.trim() || undefined,
+        cinOrPassport: values.cinOrPassport.trim(),
+        address: values.address?.trim() || undefined,
+        city: values.city?.trim() || undefined,
+        zipCode: values.zipCode?.trim() || undefined,
+        professionalAddress: values.professionalAddress.trim(),
+        financing: values.financing || undefined,
+        needDescription: values.needDescription?.trim() || undefined,
+        fieldAgentId: values.fieldAgentId || undefined,
+      };
+
+      if (canPickAgent && values.agentId) {
+        payload.agentId = values.agentId;
+      }
+
+      if (values.email?.trim()) {
+        payload.email = values.email.trim();
+      }
+
+      // CORRECTION : conversion de Client.id en string
+      if (isEdit && client) {
+        return clientsService.update(String(client.id), payload);
+      }
+
+      return clientsService.create(payload);
+    },
+
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: queryKeys.clients.all,
+      });
+
+      qc.invalidateQueries({
+        queryKey: ['clients'],
+      });
+
+      // CORRECTION : conversion de Client.id en string
+      if (isEdit && client) {
+        qc.invalidateQueries({
+          queryKey: queryKeys.clients.detail(String(client.id)),
+        });
+      }
+
+      toast.success(
+        isEdit ? 'Client mis à jour' : 'Client créé',
+      );
+
+      router.push('/crm/clients');
+    },
+
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+
+  // --------------------------------------------------
+  // Submit
+  // --------------------------------------------------
+
+  const onSubmit = (values: FormValues) => {
+    if (values.budget?.trim()) {
+      const budget = Number(values.budget);
+
+      if (!Number.isFinite(budget) || budget < 0) {
+        toast.error('Le budget doit être un montant positif.');
+        return;
+      }
+    }
+
+    if (values.nextFollowUpAt?.trim()) {
+      const date = new Date(values.nextFollowUpAt);
+
+      if (Number.isNaN(date.getTime())) {
+        toast.error('Date de relance invalide.');
+        return;
+      }
+    }
+
+    mutation.mutate(values);
+  };
+
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
 
   return (
     <form
-      onSubmit={handleSubmit((v) => mutation.mutate(v))}
+      onSubmit={handleSubmit(onSubmit)}
       className="space-y-6"
       noValidate
     >
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Colonne principale */}
+
+        {/* Main column */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Informations personnelles */}
+
+          {/* Personal information */}
           <Card>
             <CardHeader>
               <CardTitle>Informations personnelles</CardTitle>
@@ -181,7 +341,9 @@ export function ClientForm({ mode, client }: Props) {
                 Coordonnées et informations de contact du client
               </CardDescription>
             </CardHeader>
+
             <CardContent className="grid gap-4 sm:grid-cols-2">
+
               <div className="space-y-2">
                 <Label htmlFor="firstName">
                   Prénom <span className="text-destructive">*</span>
@@ -189,7 +351,8 @@ export function ClientForm({ mode, client }: Props) {
                 <Input
                   id="firstName"
                   {...register('firstName')}
-                  placeholder="Jean"
+                  placeholder="Prénom"
+                  aria-invalid={!!errors.firstName}
                 />
                 {errors.firstName && (
                   <p className="text-xs text-destructive">
@@ -197,6 +360,7 @@ export function ClientForm({ mode, client }: Props) {
                   </p>
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="lastName">
                   Nom <span className="text-destructive">*</span>
@@ -204,7 +368,8 @@ export function ClientForm({ mode, client }: Props) {
                 <Input
                   id="lastName"
                   {...register('lastName')}
-                  placeholder="Dupont"
+                  placeholder="Nom"
+                  aria-invalid={!!errors.lastName}
                 />
                 {errors.lastName && (
                   <p className="text-xs text-destructive">
@@ -212,20 +377,23 @@ export function ClientForm({ mode, client }: Props) {
                   </p>
                 )}
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="email">
-                  Email
-                </Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   {...register('email')}
-                  placeholder="jean.dupont@example.com"
+                  placeholder="client@example.com"
+                  aria-invalid={!!errors.email}
                 />
                 {errors.email && (
-                  <p className="text-xs text-destructive">{errors.email.message}</p>
+                  <p className="text-xs text-destructive">
+                    {errors.email.message}
+                  </p>
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="phone">
                   Téléphone <span className="text-destructive">*</span>
@@ -234,21 +402,26 @@ export function ClientForm({ mode, client }: Props) {
                   id="phone"
                   type="tel"
                   {...register('phone')}
-                  placeholder="+33 6 12 34 56 78"
+                  placeholder="+216 XX XXX XXX"
+                  aria-invalid={!!errors.phone}
                 />
                 {errors.phone && (
-                  <p className="text-xs text-destructive">{errors.phone.message}</p>
+                  <p className="text-xs text-destructive">
+                    {errors.phone.message}
+                  </p>
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="whatsapp">WhatsApp</Label>
                 <Input
                   id="whatsapp"
                   type="tel"
                   {...register('whatsapp')}
-                  placeholder="+33 6 12 34 56 78"
+                  placeholder="+216 XX XXX XXX"
                 />
               </div>
+
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="cinOrPassport">
                   CNI / Passeport <span className="text-destructive">*</span>
@@ -256,7 +429,8 @@ export function ClientForm({ mode, client }: Props) {
                 <Input
                   id="cinOrPassport"
                   {...register('cinOrPassport')}
-                  placeholder="CNI ou numéro de passeport"
+                  placeholder="Numéro de CNI ou passeport"
+                  aria-invalid={!!errors.cinOrPassport}
                 />
                 {errors.cinOrPassport && (
                   <p className="text-xs text-destructive">
@@ -264,39 +438,49 @@ export function ClientForm({ mode, client }: Props) {
                   </p>
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="city">Ville</Label>
                 <Input
                   id="city"
                   {...register('city')}
-                  placeholder="Paris"
+                  placeholder="Tunis"
                 />
               </div>
+
             </CardContent>
           </Card>
 
-          {/* Adresse */}
+          {/* Address */}
           <Card>
             <CardHeader>
               <CardTitle>Adresse</CardTitle>
+              <CardDescription>
+                Adresse personnelle et professionnelle
+              </CardDescription>
             </CardHeader>
+
             <CardContent className="grid gap-4 sm:grid-cols-2">
+
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="address">Adresse</Label>
+                <Label htmlFor="address">Adresse personnelle</Label>
                 <Input
                   id="address"
                   {...register('address')}
-                  placeholder="12 rue de la Paix"
+                  placeholder="Adresse du client"
                 />
               </div>
+
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="professionalAddress">
-                  Adresse professionnelle <span className="text-destructive">*</span>
+                  Adresse professionnelle{' '}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="professionalAddress"
                   {...register('professionalAddress')}
-                  placeholder="10 avenue des Champs-Élysées, 75008 Paris"
+                  placeholder="Adresse professionnelle"
+                  aria-invalid={!!errors.professionalAddress}
                 />
                 {errors.professionalAddress && (
                   <p className="text-xs text-destructive">
@@ -304,33 +488,49 @@ export function ClientForm({ mode, client }: Props) {
                   </p>
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="zipCode">Code postal</Label>
                 <Input
                   id="zipCode"
                   {...register('zipCode')}
-                  placeholder="75001"
+                  placeholder="1000"
                 />
               </div>
+
             </CardContent>
           </Card>
 
           {/* Notes */}
           <Card>
             <CardHeader>
-              <CardTitle>Notes</CardTitle>
+              <CardTitle>Notes et besoins</CardTitle>
+              <CardDescription>
+                Informations utiles pour le suivi immobilier
+              </CardDescription>
             </CardHeader>
+
             <CardContent className="space-y-4">
+
               <div className="space-y-2">
-                <Label htmlFor="needDescription">Besoin exact du client</Label>
+                <Label htmlFor="needDescription">
+                  Besoin exact du client
+                </Label>
                 <textarea
                   id="needDescription"
                   {...register('needDescription')}
-                  rows={3}
+                  rows={4}
+                  maxLength={2000}
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                  placeholder="Ex : terrain 300 m² en zone villa à la Soukra, proche de l'école"
+                  placeholder="Ex : terrain 300 m² en zone villa à la Soukra, proche de l'école..."
                 />
+                {errors.needDescription && (
+                  <p className="text-xs text-destructive">
+                    {errors.needDescription.message}
+                  </p>
+                )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes internes</Label>
                 <textarea
@@ -341,30 +541,38 @@ export function ClientForm({ mode, client }: Props) {
                   placeholder="Préférences, remarques, historique..."
                 />
               </div>
+
             </CardContent>
           </Card>
         </div>
 
-        {/* Colonne latérale */}
+        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Type de client */}
+
+          {/* Client type */}
           <Card>
             <CardHeader>
               <CardTitle>Type de client</CardTitle>
+              <CardDescription>
+                Gestion commerciale et suivi
+              </CardDescription>
             </CardHeader>
+
             <CardContent className="space-y-4">
+
               <div className="space-y-2">
                 <Label htmlFor="clientType">
                   Type <span className="text-destructive">*</span>
                 </Label>
+
                 <Select
                   value={clientType}
                   onValueChange={(value) =>
-                    setValue('clientType', value as ClientType)
+                    setValue('clientType', value as ClientType, selectOptions)
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Type de client" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="BUYER">Acheteur</SelectItem>
@@ -378,9 +586,13 @@ export function ClientForm({ mode, client }: Props) {
                 <div className="space-y-2">
                   <Label htmlFor="status">Statut</Label>
                   <Select
-                    value={status}
+                    value={status || 'PROSPECT'}
                     onValueChange={(value) =>
-                      setValue('status', value as 'PROSPECT' | 'CLIENT')
+                      setValue(
+                        'status',
+                        value as 'PROSPECT' | 'CLIENT',
+                        selectOptions,
+                      )
                     }
                   >
                     <SelectTrigger>
@@ -399,7 +611,11 @@ export function ClientForm({ mode, client }: Props) {
                 <Select
                   value={followUpStatusVal || 'TO_CONTACT'}
                   onValueChange={(value) =>
-                    setValue('followUpStatus', value as 'TO_CONTACT' | 'CONTACTED' | 'NEGOTIATION' | 'WON' | 'LOST')
+                    setValue(
+                      'followUpStatus',
+                      value as FormValues['followUpStatus'],
+                      selectOptions,
+                    )
                   }
                 >
                   <SelectTrigger>
@@ -416,28 +632,45 @@ export function ClientForm({ mode, client }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="nextFollowUpAt">Prochaine relance</Label>
+                <Label htmlFor="nextFollowUpAt">
+                  Prochaine relance
+                </Label>
                 <Input
                   id="nextFollowUpAt"
                   type="datetime-local"
                   {...register('nextFollowUpAt')}
                 />
+                {errors.nextFollowUpAt && (
+                  <p className="text-xs text-destructive">
+                    {errors.nextFollowUpAt.message}
+                  </p>
+                )}
               </div>
 
-              {canPickAgent && agents.length > 0 && (
+              {/* Responsible agent */}
+              {canPickAgent && (
                 <div className="space-y-2">
                   <Label htmlFor="agentId">Agent responsable</Label>
+
                   <Select
-                    value={agentId || '__none__'}
+                    value={agentId || NONE}
                     onValueChange={(value) =>
-                      setValue('agentId', value === '__none__' ? '' : value)
+                      setValue(
+                        'agentId',
+                        value === NONE ? '' : value,
+                        selectOptions,
+                      )
                     }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Choisir un agent" />
                     </SelectTrigger>
+
                     <SelectContent>
-                      <SelectItem value="__none__">— Sélectionner —</SelectItem>
+                      <SelectItem value={NONE}>
+                        Aucun agent
+                      </SelectItem>
+
                       {agents.map((a) => (
                         <SelectItem key={a.id} value={a.id}>
                           {fullName(a.user)}
@@ -445,23 +678,37 @@ export function ClientForm({ mode, client }: Props) {
                       ))}
                     </SelectContent>
                   </Select>
+
                   <p className="text-xs text-muted-foreground">
-                    Chaque client est rattaché à un agent. Si vide, vous serez assigné par défaut.
+                    Si aucun agent n'est sélectionné, l'assignation par défaut
+                    du backend sera appliquée.
                   </p>
                 </div>
               )}
 
+              {/* Financing */}
               <div className="space-y-2">
                 <Label htmlFor="financing">Mode de paiement</Label>
+
                 <Select
-                  value={watch('financing') || '__none__'}
-                  onValueChange={(v) => setValue('financing', v === '__none__' ? '' : (v as Financing))}
+                  value={financing || NONE}
+                  onValueChange={(value) =>
+                    setValue(
+                      'financing',
+                      value === NONE ? '' : (value as Financing),
+                      selectOptions,
+                    )
+                  }
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Non précisé" />
                   </SelectTrigger>
+
                   <SelectContent>
-                    <SelectItem value="__none__">— Non précisé —</SelectItem>
+                    <SelectItem value={NONE}>
+                      Non précisé
+                    </SelectItem>
+
                     {(Object.keys(FINANCING_LABELS) as Financing[]).map((f) => (
                       <SelectItem key={f} value={f}>
                         {FINANCING_LABELS[f]}
@@ -471,85 +718,135 @@ export function ClientForm({ mode, client }: Props) {
                 </Select>
               </div>
 
-              {agents.length > 0 && (
-                <div className="space-y-2">
-                  <Label htmlFor="fieldAgentId">Agent terrain</Label>
-                  <Select
-                    value={watch('fieldAgentId') || '__none__'}
-                    onValueChange={(v) => setValue('fieldAgentId', v === '__none__' ? '' : v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Aucun —</SelectItem>
-                      {agents.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {fullName(a.user)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Agent qui fait les visites avec ce client.</p>
-                </div>
+              {/* Field agent */}
+              <div className="space-y-2">
+                <Label htmlFor="fieldAgentId">Agent terrain</Label>
+
+                <Select
+                  value={fieldAgentId || NONE}
+                  onValueChange={(value) =>
+                    setValue(
+                      'fieldAgentId',
+                      value === NONE ? '' : value,
+                      selectOptions,
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un agent" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value={NONE}>
+                      Aucun agent
+                    </SelectItem>
+
+                    {agents.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {fullName(a.user)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <p className="text-xs text-muted-foreground">
+                  Agent qui effectue les visites avec ce client.
+                </p>
+              </div>
+
+              {isLoadingAgents && (
+                <p className="text-xs text-muted-foreground">
+                  Chargement des agents...
+                </p>
               )}
 
+              {/* Budget */}
               <div className="space-y-2">
                 <Label htmlFor="budget">Budget (optionnel)</Label>
                 <Input
                   id="budget"
                   type="number"
+                  min="0"
+                  step="any"
                   {...register('budget')}
                   placeholder="150000"
                 />
+                {errors.budget && (
+                  <p className="text-xs text-destructive">
+                    {errors.budget.message}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Budget maximum en dinars (DT)
                 </p>
               </div>
+
             </CardContent>
           </Card>
 
-          {/* Informations */}
+          {/* Information */}
           {isEdit && client && (
             <Card>
               <CardHeader>
                 <CardTitle>Informations</CardTitle>
               </CardHeader>
+
               <CardContent className="space-y-3">
                 <div>
                   <p className="text-sm text-muted-foreground">Référence</p>
                   <p className="font-medium">#{client.id}</p>
                 </div>
+
                 <div>
                   <p className="text-sm text-muted-foreground">Ajouté le</p>
                   <p className="font-medium">
-                    {new Date(client.createdAt).toLocaleDateString('fr-FR')}
+                    {new Date(String(client.createdAt)).toLocaleDateString('fr-FR')}
                   </p>
                 </div>
+
                 <div>
-                  <p className="text-sm text-muted-foreground">Mis à jour le</p>
+                  <p className="text-sm text-muted-foreground">
+                    Mis à jour le
+                  </p>
                   <p className="font-medium">
-                    {new Date(client.updatedAt).toLocaleDateString('fr-FR')}
+                    {new Date(String(client.updatedAt)).toLocaleDateString('fr-FR')}
                   </p>
                 </div>
               </CardContent>
             </Card>
           )}
+
         </div>
       </div>
 
-      {/* Barre d'actions */}
-      <div className="flex justify-end gap-3 border-t border-border pt-4">
-        <Button type="button" variant="outline" asChild>
-          <Link href="/crm/clients">Annuler</Link>
+      {/* Actions */}
+      <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          asChild
+          disabled={mutation.isPending}
+        >
+          <Link href="/crm/clients">
+            Annuler
+          </Link>
         </Button>
-        <Button type="submit" disabled={mutation.isPending}>
+
+        <Button
+          type="submit"
+          disabled={mutation.isPending}
+        >
           {mutation.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Enregistrement...
+            </>
           ) : (
-            <Save className="mr-2 h-4 w-4" />
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              {isEdit ? 'Enregistrer les modifications' : 'Créer le client'}
+            </>
           )}
-          {isEdit ? 'Enregistrer' : 'Créer le client'}
         </Button>
       </div>
     </form>
