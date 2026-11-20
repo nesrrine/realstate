@@ -8,7 +8,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'Le Portail Immobilier | Agence immobilière',
-  description: 'Découvrez notre portefeuille de biens immobiliers : appartements, villas, terrains, locaux commerciaux. Vente et location.',
+  description:
+    'Découvrez notre portefeuille de biens immobiliers : appartements, villas, terrains, locaux commerciaux. Vente et location.',
 };
 
 export const viewport = {
@@ -32,7 +33,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900 antialiased">
+      <body className="flex min-h-dvh flex-col bg-slate-50 font-sans text-slate-900 antialiased">
         <ProvidersWrapper>{children}</ProvidersWrapper>
       </body>
     </html>

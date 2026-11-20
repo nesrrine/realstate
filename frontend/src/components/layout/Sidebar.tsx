@@ -39,6 +39,12 @@ const adminNavigation = [
   { name: 'Agents', href: '/crm/agents', icon: UserCircle },
 ];
 
+const linkBase =
+  'flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors';
+const linkIdle =
+  'text-[var(--crm-sidebar-fg)] hover:bg-white/10 hover:text-white';
+const linkActive = 'bg-[var(--crm-sidebar-accent)] text-white';
+
 export function Sidebar({ className }: { className?: string } = {}) {
   const pathname = usePathname();
   const { logout, user, isManager, isAdmin } = useAuth();
@@ -60,9 +66,18 @@ export function Sidebar({ className }: { className?: string } = {}) {
   ];
 
   return (
-    <div className={cn("flex h-full w-64 flex-col bg-[var(--crm-sidebar)] text-[var(--crm-sidebar-fg)]", className)}>
-      {/* Logo */}
-      <Link href="/crm/dashboard" className="flex h-16 items-center gap-3 px-5 border-b border-white/10">
+    <aside
+      className={cn(
+        // h-full + min-h-0 : la sidebar prend la hauteur de la fenêtre, pas plus
+        'flex h-full min-h-0 w-64 shrink-0 flex-col bg-[var(--crm-sidebar)] text-[var(--crm-sidebar-fg)]',
+        className
+      )}
+    >
+      {/* Logo (ne rétrécit jamais) */}
+      <Link
+        href="/crm/dashboard"
+        className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-5"
+      >
         <div className="shrink-0 rounded-lg bg-white p-1">
           <Image
             src="/logo-portail-immobilier.png"
@@ -74,83 +89,72 @@ export function Sidebar({ className }: { className?: string } = {}) {
         </div>
         <div className="leading-tight">
           <span className="block text-sm font-bold text-white">Le Portail Immobilier</span>
-          <span className="block text-[10px] font-medium uppercase tracking-wider text-white/50">CRM</span>
+          <span className="block text-[10px] font-medium uppercase tracking-wider text-white/50">
+            CRM
+          </span>
         </div>
       </Link>
 
-      {/* User Info */}
-      <div className="px-6 py-4 border-b border-white/10">
-        <div className="flex items-center space-x-3">
-          <div className="h-10 w-10 rounded-full bg-[var(--crm-sidebar-accent)] flex items-center justify-center text-white font-semibold">
-            {user?.firstName?.[0]}{user?.lastName?.[0]}
+      {/* Utilisateur (ne rétrécit jamais) */}
+      <div className="shrink-0 border-b border-white/10 px-5 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--crm-sidebar-accent)] font-semibold text-white">
+            {user?.firstName?.[0]}
+            {user?.lastName?.[0]}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white">
               {user?.firstName} {user?.lastName}
             </p>
-            <p className="text-xs text-[var(--crm-sidebar-muted)] truncate">
-              {user?.email}
-            </p>
+            <p className="truncate text-xs text-[var(--crm-sidebar-muted)]">{user?.email}</p>
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      {/* Navigation : SEULE zone qui défile dans la sidebar */}
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={cn(
-                'flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                isActive
-                  ? 'bg-[var(--crm-sidebar-accent)] text-white'
-                  : 'text-[var(--crm-sidebar-fg)] hover:bg-white/10 hover:text-white'
-              )}
+              aria-current={isActive ? 'page' : undefined}
+              className={cn(linkBase, isActive ? linkActive : linkIdle)}
             >
-              <item.icon className="mr-3 h-5 w-5" />
+              <item.icon className="mr-3 h-5 w-5 shrink-0" />
               {item.name}
             </Link>
           );
         })}
       </nav>
 
-      {/* Bottom Actions */}
-      <div className="border-t border-white/10 p-3 space-y-1">
-        <Link
-          href="/crm/notifications"
-          className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-[var(--crm-sidebar-fg)] hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <Bell className="mr-3 h-5 w-5" />
+      {/* Actions du bas : toujours visibles, épinglées en bas */}
+      <div className="shrink-0 space-y-1 border-t border-white/10 p-3">
+        <Link href="/crm/notifications" className={cn(linkBase, linkIdle)}>
+          <Bell className="mr-3 h-5 w-5 shrink-0" />
           Notifications
         </Link>
-        <Link
-          href="/crm/profile"
-          className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-[var(--crm-sidebar-fg)] hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <UserCircle className="mr-3 h-5 w-5" />
+        <Link href="/crm/profile" className={cn(linkBase, linkIdle)}>
+          <UserCircle className="mr-3 h-5 w-5 shrink-0" />
           Profil
         </Link>
         {/* Paramètres de l'agence : modifiables par le gérant / admin uniquement */}
         {(isManager || isAdmin) && (
-          <Link
-            href="/crm/settings"
-            className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-[var(--crm-sidebar-fg)] hover:bg-white/10 hover:text-white transition-colors"
-          >
-            <Settings className="mr-3 h-5 w-5" />
+          <Link href="/crm/settings" className={cn(linkBase, linkIdle)}>
+            <Settings className="mr-3 h-5 w-5 shrink-0" />
             Paramètres
           </Link>
         )}
         <button
+          type="button"
           onClick={() => logout()}
-          className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md text-[var(--crm-sidebar-fg)] hover:bg-white/10 hover:text-white transition-colors"
+          className={cn(linkBase, linkIdle, 'w-full')}
         >
-          <LogOut className="mr-3 h-5 w-5" />
+          <LogOut className="mr-3 h-5 w-5 shrink-0" />
           Déconnexion
         </button>
       </div>
-    </div>
+    </aside>
   );
 }

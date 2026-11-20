@@ -48,28 +48,40 @@ const VALUES = [
 
 const TEAM = [
   {
-    name: 'Jean Dupont',
-    role: 'Directeur Général',
-    initials: 'JD',
-    description: 'Expert en immobilier résidentiel et commercial depuis 20 ans.',
+    name: 'Yassine Guizani',
+    role: 'Gérant',
+    initials: 'YG',
+    description: 'Direction et gestion de l’agence immobilière.',
   },
   {
-    name: 'Marie Martin',
-    role: 'Directrice Commerciale',
-    initials: 'MM',
-    description: 'Spécialiste en vente de villas et appartements de standing.',
+    name: 'Nesrine Romdhani',
+    role: 'Agent de bureau',
+    initials: 'NR',
+    description: 'Accueil, suivi administratif et accompagnement des clients.',
   },
   {
-    name: 'Pierre Durand',
-    role: 'Responsable Location',
-    initials: 'PD',
-    description: 'Expert en gestion locative et investissement locatif.',
+    name: 'Chams Ouni',
+    role: 'Agent de bureau',
+    initials: 'CO',
+    description: 'Accueil et suivi des dossiers immobiliers.',
   },
   {
-    name: 'Sophie Leroy',
-    role: 'Conseillère Senior',
-    initials: 'SL',
-    description: 'Spécialiste en terrains et locaux commerciaux.',
+    name: 'Hajer Ayari',
+    role: 'Agent de bureau',
+    initials: 'HA',
+    description: 'Gestion administrative et relation client.',
+  },
+  {
+    name: 'Khalil Guizani',
+    role: 'Agent de bureau',
+    initials: 'KG',
+    description: 'Suivi des dossiers et assistance administrative.',
+  },
+  {
+    name: 'Mohamed Guizani',
+    role: 'Agent de terrain',
+    initials: 'MG',
+    description: 'Visites des biens et accompagnement sur le terrain.',
   },
 ];
 

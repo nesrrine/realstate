@@ -52,16 +52,34 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* CORRECTIF 1 : hauteur de base fiable (dvh = tient compte de la barre du navigateur) */
+html {
+  height: 100%;
+}
+
 body {
+  min-height: 100dvh;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter);
 }
 
-/* Sidebar CRM */
+/* CORRECTIF 2 : zone de contenu du CRM.
+   Utilise className="crm-main" sur <main> : le scroll reste dans <main>
+   et ne "remonte" jamais vers la page. */
+.crm-main {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* CORRECTIF 3 : la sidebar ne se déforme jamais, et son menu défile seul */
 .sidebar-crm {
   background: var(--crm-sidebar);
   color: var(--crm-sidebar-fg);
+  flex-shrink: 0;
+  height: 100%;
 }
 
 .sidebar-crm .nav-item {
@@ -87,6 +105,7 @@ body {
 .sidebar-crm .nav-item:hover .icon {
   color: inherit;
 }
+
 /* Cartes Leaflet : leurs calques (z-index 400 à 1000) restent confinés à la carte
    et ne passent plus au-dessus des listes déroulantes, menus et fenêtres. */
 .leaflet-container {

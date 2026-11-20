@@ -407,6 +407,8 @@ export class AgentsService {
   }
 
   // Réinitialiser le mot de passe : MANAGER uniquement
+// Réinitialiser le mot de passe : MANAGER uniquement, comptes AGENT uniquement
+  // Réinitialiser le mot de passe : MANAGER uniquement, comptes AGENT uniquement
   async resetPassword(
     id: string,
     newPassword: string,
@@ -420,7 +422,12 @@ export class AgentsService {
 
     const agent = await this.findOne(id);
 
-    this.assertCanManage(agent.user.role, actor);
+    // Seuls les comptes AGENT sont concernés (pas ADMIN ni MANAGER)
+    if (agent.user.role !== Role.AGENT) {
+      throw new ForbiddenException(
+        "Seuls les mots de passe des agents peuvent être réinitialisés",
+      );
+    }
 
     if (agent.user.id === actor.userId) {
       throw new ForbiddenException(
@@ -431,18 +438,14 @@ export class AgentsService {
     const passwordHash = await argon2.hash(newPassword);
 
     await this.prisma.user.update({
-      where: {
-        id: agent.user.id,
-      },
+      where: { id: agent.user.id },
       data: {
         passwordHash,
         passwordChangedAt: new Date(),
       },
     });
 
-    return {
-      message: "Mot de passe réinitialisé avec succès",
-    };
+    return { message: "Mot de passe réinitialisé avec succès" };
   }
 
   // Portefeuille d'un agent

@@ -23,7 +23,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="mt-2 text-sm text-muted-foreground">Chargement...</p>
@@ -35,11 +35,15 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar className="hidden md:flex" />
+    // fixed inset-0 : le CRM = exactement la fenêtre, aucune scrollbar de page
+    <div className="fixed inset-0 flex overflow-hidden bg-slate-50">
+      {/* Sidebar desktop */}
+      <Sidebar className="hidden h-full shrink-0 md:flex" />
+
+      {/* Sidebar mobile (overlay) */}
       {mobileNav && (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <Sidebar className="shadow-xl" />
+          <Sidebar className="h-full shrink-0 shadow-xl" />
           <button
             type="button"
             aria-label="Fermer le menu"
@@ -48,9 +52,17 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
           />
         </div>
       )}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header onMenuClick={() => setMobileNav(true)} />
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-6">{children}</main>
+
+      {/* Colonne contenu */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="shrink-0">
+          <Header onMenuClick={() => setMobileNav(true)} />
+        </div>
+
+        {/* SEUL élément qui défile */}
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          {children}
+        </main>
       </div>
     </div>
   );

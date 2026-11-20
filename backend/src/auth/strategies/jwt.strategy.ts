@@ -29,9 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: true,
         isActive: true,
         passwordChangedAt: true,
-        agent: {
-          select: { id: true }
-        }
+        agent: { select: { id: true } },
       },
     });
 
@@ -40,14 +38,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Session ouverte avant le dernier changement de mot de passe : révoquée
-    if (user.passwordChangedAt && (payload.iat ?? 0) < Math.floor(user.passwordChangedAt.getTime() / 1000)) {
-      throw new UnauthorizedException("Session expirée : mot de passe modifié");
+    if (user.passwordChangedAt) {
+      const changedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000);
+      if ((payload.iat ?? 0) < changedAtSec) {
+        throw new UnauthorizedException(
+          "Session expirée : mot de passe modifié",
+        );
+      }
     }
 
-    const { passwordChangedAt: _changedAt, ...publicUser } = user;
+    const { passwordChangedAt: _changedAt, agent, ...publicUser } = user;
+
     return {
       ...publicUser,
-      agentId: user.agent?.id ?? null,
+      agentId: agent?.id ?? null,
     };
   }
 }
