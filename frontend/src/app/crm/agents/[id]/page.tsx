@@ -5,10 +5,22 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Edit, Mail, Phone, Wallet } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Building2,
+  CalendarCheck,
+  CalendarDays,
+  Edit,
+  Mail,
+  Phone,
+  Users,
+  Wallet,
+} from "lucide-react";
 
 import { useAuth } from "@/providers/AuthProvider";
 import { agentsService } from "@/services/agents.service";
+import { cashService } from "@/services/cash.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,18 +33,81 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fullName } from "@/lib/property-constants";
-import { cashService } from "@/services/cash.service";
 import { getErrorMessage } from "@/lib/errors";
 import { queryKeys } from "@/lib/query-keys";
 import { DeleteAgentButton } from "@/components/agents/delete-agent-dialog";
 import { AgentTypeBadge } from "@/components/agents/agent-type-badge";
 import { ResetPasswordButton } from "@/components/agents/reset-password-dialog";
 
+const ROLE_LABELS: Record<string, string> = {
+  AGENT: "Agent",
+  ADMIN: "Administrateur",
+  MANAGER: "Gérant",
+};
+
+function initials(firstName?: string, lastName?: string) {
+  return `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "?";
+}
+
+function formatDate(value?: string) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-4 pt-6">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold leading-tight">{value}</p>
+          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PageSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-24 rounded-xl bg-muted" />
+      <div className="grid gap-4 md:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-24 rounded-xl bg-muted" />
+        ))}
+      </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="h-64 rounded-xl bg-muted" />
+        <div className="h-64 rounded-xl bg-muted lg:col-span-2" />
+      </div>
+    </div>
+  );
+}
+
 export default function AgentDetailPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const qc = useQueryClient();
 
   const isAgentRole = user?.role === "AGENT";
 
@@ -42,13 +117,17 @@ export default function AgentDetailPage() {
     }
   }, [authLoading, isAgentRole, router]);
 
-  const { data: agent, isLoading } = useQuery({
+  const {
+    data: agent,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["agents", "detail", id],
     queryFn: () => agentsService.getById(id),
     enabled: !!id && !authLoading && !!user && !isAgentRole,
   });
 
-  const qc = useQueryClient();
   const cashAccess = useMutation({
     mutationFn: (enabled: boolean) => cashService.setAgentAccess(id, enabled),
     onSuccess: ({ canManageCash }) => {
@@ -64,197 +143,282 @@ export default function AgentDetailPage() {
   });
 
   if (authLoading || isAgentRole || isLoading) {
-    return <div className="py-12 text-center">Chargement...</div>;
+    return <PageSkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <div className="py-16 text-center space-y-4">
+        <p className="text-muted-foreground">
+          Impossible de charger la fiche de l&apos;agent.
+        </p>
+        <div className="flex justify-center gap-2">
+          <Button variant="outline" onClick={() => refetch()}>
+            Réessayer
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/crm/agents">Retour à la liste</Link>
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (!agent) {
-    return <div className="py-12 text-center">Agent introuvable</div>;
+    return (
+      <div className="py-16 text-center space-y-4">
+        <p className="text-muted-foreground">Agent introuvable.</p>
+        <Button variant="outline" asChild>
+          <Link href="/crm/agents">Retour à la liste</Link>
+        </Button>
+      </div>
+    );
   }
 
+  // Règles alignées sur le back
   const isSelf = agent.user.email === user?.email;
-  // Le back refuse la modification d'un compte MANAGER par un non-MANAGER
-  const canManageTarget =
-    agent.user.role !== "MANAGER" || user?.role === "MANAGER";
+  const targetRole = agent.user.role ?? "AGENT";
+  // Un compte MANAGER ne peut être modifié que par un MANAGER
+  const canManageTarget = targetRole !== "MANAGER" || user?.role === "MANAGER";
+  const canEditOrDelete = canManageTarget && !isSelf;
   // ADMIN et MANAGER, comptes AGENT uniquement, jamais soi-même
-  const canResetPassword = agent.user.role === "AGENT" && !isSelf;
+  const canResetPassword = targetRole === "AGENT" && !isSelf;
+
+  const isOffice = agent.agentType === "OFFICE";
+  const visitsCount = isOffice
+    ? (agent._count?.officeAgentVisits ?? 0)
+    : (agent._count?.fieldAgentVisits ?? 0);
+  const clientsCount = agent._count?.clients ?? 0;
+  const memberSince = formatDate(agent.user.createdAt);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/crm/agents">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{fullName(agent.user)}</h1>
-            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
-              Fiche agent
-              <AgentTypeBadge type={agent.agentType} />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {canManageTarget && !isSelf && (
-            <Link href={`/crm/agents/${id}/edit`}>
-              <Button>
-                <Edit className="mr-2 h-4 w-4" />
-                Modifier
-              </Button>
-            </Link>
-          )}
-
-          {canResetPassword && (
-            <ResetPasswordButton
-              agentId={id}
-              agentName={fullName(agent.user)}
-            />
-          )}
-
-          {canManageTarget && !isSelf && (
-            <DeleteAgentButton
-              agentId={id}
-              agentName={fullName(agent.user)}
-              myAgentId={user?.agentId}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Clients
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{agent._count?.clients ?? 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Biens
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {agent._count?.properties ?? 0}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Visites
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Agent terrain : visites accompagnées ; agent bureau : visites planifiées */}
-            <p className="text-2xl font-bold">
-              {agent.agentType === "OFFICE"
-                ? (agent._count?.officeAgentVisits ?? 0)
-                : (agent._count?.fieldAgentVisits ?? 0)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {agent.agentType === "OFFICE" ? "planifiées" : "accompagnées"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* En-tête */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
-          <div className="flex items-start gap-3">
-            <Wallet className="mt-0.5 h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="font-medium">Frais de visite &amp; dépenses</p>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/crm/agents" aria-label="Retour à la liste">
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            </Button>
+
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground">
+              {initials(agent.user.firstName, agent.user.lastName)}
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-bold tracking-tight">
+                {fullName(agent.user)}
+                {isSelf && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    (vous)
+                  </span>
+                )}
+              </h1>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <AgentTypeBadge type={agent.agentType} />
+                <Badge variant="outline">
+                  {ROLE_LABELS[targetRole] ?? targetRole}
+                </Badge>
+                <Badge variant={agent.user.isActive ? "default" : "secondary"}>
+                  {agent.user.isActive ? "Actif" : "Inactif"}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {canEditOrDelete && (
+              <Button asChild>
+                <Link href={`/crm/agents/${id}/edit`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Modifier
+                </Link>
+              </Button>
+            )}
+
+            {canResetPassword && (
+              <ResetPasswordButton
+                agentId={id}
+                agentName={fullName(agent.user)}
+              />
+            )}
+
+            {canEditOrDelete && (
+              <DeleteAgentButton
+                agentId={id}
+                agentName={fullName(agent.user)}
+                myAgentId={user?.agentId}
+              />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Statistiques */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard label="Clients" value={clientsCount} icon={Users} />
+        <StatCard
+          label="Biens"
+          value={agent._count?.properties ?? 0}
+          icon={Building2}
+        />
+        <StatCard
+          label="Visites"
+          value={visitsCount}
+          hint={isOffice ? "planifiées" : "accompagnées"}
+          icon={CalendarCheck}
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Colonne gauche */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Coordonnées</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center gap-3">
+                <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <a
+                  href={`mailto:${agent.user.email}`}
+                  className="truncate hover:underline"
+                >
+                  {agent.user.email}
+                </a>
+              </div>
+
+              {agent.user.phone && (
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <a
+                    href={`tel:${agent.user.phone}`}
+                    className="hover:underline"
+                  >
+                    {agent.user.phone}
+                  </a>
+                </div>
+              )}
+
+              {agent.licenseNumber && (
+                <div className="flex items-center gap-3">
+                  <BadgeCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>Carte pro : {agent.licenseNumber}</span>
+                </div>
+              )}
+
+              {memberSince && (
+                <div className="flex items-center gap-3">
+                  <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>Membre depuis le {memberSince}</span>
+                </div>
+              )}
+
+              {agent.bio && (
+                <p className="border-t pt-3 text-muted-foreground">
+                  {agent.bio}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                Frais de visite &amp; dépenses
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    agent.canManageCash ? "bg-green-500" : "bg-muted-foreground"
+                  }`}
+                />
+                <span className="text-sm font-medium">
+                  {agent.canManageCash ? "Accès autorisé" : "Accès non autorisé"}
+                </span>
+              </div>
               <p className="text-sm text-muted-foreground">
                 {agent.canManageCash
                   ? "Cet agent peut consulter et saisir les frais de visite et les dépenses de chaque jour."
                   : "Accès réservé au gérant. Autorisez cet agent pour qu'il puisse les consulter et les saisir."}
               </p>
-            </div>
-          </div>
-          <Button
-            variant={agent.canManageCash ? "outline" : "default"}
-            disabled={cashAccess.isPending}
-            onClick={() => cashAccess.mutate(!agent.canManageCash)}
-          >
-            {agent.canManageCash ? "Retirer l'accès" : "Autoriser l'accès"}
-          </Button>
-        </CardContent>
-      </Card>
+              <Button
+                className="w-full"
+                variant={agent.canManageCash ? "outline" : "default"}
+                disabled={cashAccess.isPending}
+                onClick={() => cashAccess.mutate(!agent.canManageCash)}
+              >
+                {cashAccess.isPending
+                  ? "Mise à jour..."
+                  : agent.canManageCash
+                    ? "Retirer l'accès"
+                    : "Autoriser l'accès"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Coordonnées</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center gap-2 text-sm">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            {agent.user.email}
-          </div>
-          {agent.user.phone && (
-            <div className="flex items-center gap-2 text-sm">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              {agent.user.phone}
-            </div>
-          )}
-          <Badge variant={agent.user.isActive ? "default" : "secondary"}>
-            {agent.user.isActive ? "Actif" : "Inactif"}
-          </Badge>
-          {agent.licenseNumber && (
-            <p className="text-sm text-muted-foreground">
-              Carte pro : {agent.licenseNumber}
-            </p>
-          )}
-          {agent.bio && <p className="text-sm">{agent.bio}</p>}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Clients assignés</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {agent.clients && agent.clients.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {agent.clients.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell>
-                      {c.firstName} {c.lastName}
-                    </TableCell>
-                    <TableCell className="text-sm">{c.phone}</TableCell>
-                    <TableCell>
-                      <Link href={`/crm/clients/${c.id}`}>
-                        <Button variant="outline" size="sm">
-                          Voir
-                        </Button>
-                      </Link>
-                    </TableCell>
+        {/* Colonne droite */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">
+              Clients assignés
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({clientsCount})
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {agent.clients && agent.clients.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Aucun client pour cet agent.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {agent.clients.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">
+                        {c.firstName} {c.lastName}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">{c.phone}</div>
+                        {c.email && (
+                          <div className="text-xs text-muted-foreground">
+                            {c.email}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/crm/clients/${c.id}`}>Voir</Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="py-10 text-center">
+                <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  {clientsCount > 0
+                    ? `Cet agent a ${clientsCount} client(s), mais la liste détaillée n'est pas disponible.`
+                    : "Aucun client pour cet agent."}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
