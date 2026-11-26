@@ -5,14 +5,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 
 import { useAuth } from "@/providers/AuthProvider";
 import { AgentForm } from "@/components/agents/agent-form";
 import { ResetPasswordButton } from "@/components/agents/reset-password-dialog";
 import { agentsService } from "@/services/agents.service";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fullName } from "@/lib/property-constants";
 
 function initials(firstName?: string, lastName?: string) {
@@ -21,7 +20,7 @@ function initials(firstName?: string, lastName?: string) {
 
 function PageSkeleton() {
   return (
-    <div className="mx-auto max-w-3xl space-y-6 animate-pulse">
+    <div className="mx-auto max-w-4xl animate-pulse space-y-6">
       <div className="h-16 rounded-xl bg-muted" />
       <div className="h-96 rounded-xl bg-muted" />
     </div>
@@ -72,11 +71,9 @@ export default function AgentEditPage() {
     }
   }, [agent, forbidden, isSelf, id, router]);
 
-  if (authLoading || (user && !canEdit) || isLoading || forbidden) {
+  if (authLoading || !user || !canEdit || isLoading || forbidden) {
     return <PageSkeleton />;
   }
-
-  if (!user) return null;
 
   if (isError) {
     return (
@@ -107,54 +104,52 @@ export default function AgentEditPage() {
     );
   }
 
-  // ADMIN et MANAGER, comptes AGENT uniquement (déjà exclu : son propre compte)
+  // ADMIN et MANAGER, comptes AGENT uniquement (son propre compte est déjà exclu)
   const canResetPassword = agent.user.role === "AGENT";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href={`/crm/agents/${id}`} aria-label="Retour à la fiche">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-        </Button>
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* En-tête */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href={`/crm/agents/${id}`} aria-label="Retour à la fiche">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          </Button>
 
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-foreground">
-          {initials(agent.user.firstName, agent.user.lastName)}
-        </div>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-foreground">
+            {initials(agent.user.firstName, agent.user.lastName)}
+          </div>
 
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold tracking-tight">
-            Modifier l&apos;agent
-          </h1>
-          <p className="truncate text-sm text-muted-foreground">
-            {fullName(agent.user)} · {agent.user.email}
-          </p>
-        </div>
-      </div>
-
-      <AgentForm mode="edit" agent={agent} />
-
-      {canResetPassword && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-              Sécurité
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-center justify-between gap-4">
-            <p className="max-w-md text-sm text-muted-foreground">
-              Définissez un nouveau mot de passe si l&apos;agent a oublié le
-              sien. Communiquez-le-lui par un canal sûr.
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-bold tracking-tight">
+              Modifier l&apos;agent
+            </h1>
+            <p className="truncate text-sm text-muted-foreground">
+              {fullName(agent.user)} · {agent.user.email}
             </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/crm/agents/${id}`}>
+              <Eye className="mr-2 h-4 w-4" />
+              Voir la fiche
+            </Link>
+          </Button>
+
+          {canResetPassword && (
             <ResetPasswordButton
               agentId={id}
               agentName={fullName(agent.user)}
             />
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </div>
+      </div>
+
+      <AgentForm mode="edit" agent={agent} />
     </div>
   );
 }

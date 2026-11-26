@@ -156,8 +156,6 @@ export default function AgentDetailPage() {
     onError: (e) => toast.error(getErrorMessage(e)),
   });
 
-  // Tant que l'utilisateur n'est pas connu, on affiche le squelette
-  // (sinon "Agent introuvable" clignote : la requête est désactivée)
   if (authLoading || !user || isAgentRole || isLoading) {
     return <PageSkeleton />;
   }
@@ -194,11 +192,11 @@ export default function AgentDetailPage() {
   // Règles alignées sur le back
   const isSelf = agent.user.email === user.email;
   const targetRole = agent.user.role ?? "AGENT";
-  // Un compte MANAGER ne peut être modifié que par un MANAGER
   const canManageTarget = targetRole !== "MANAGER" || user.role === "MANAGER";
   const canEditOrDelete = canManageTarget && !isSelf;
-  // ADMIN et MANAGER, comptes AGENT uniquement, jamais soi-même
   const canResetPassword = targetRole === "AGENT" && !isSelf;
+  // Accès aux frais : réservé au gérant (cf. le texte de la carte)
+  const canToggleCash = user.role === "MANAGER" && !isSelf;
 
   const isActive = !!agent.user.isActive;
   const isOffice = agent.agentType === "OFFICE";
@@ -208,11 +206,12 @@ export default function AgentDetailPage() {
   const clientsCount = agent._count?.clients ?? 0;
   const clientsList = agent.clients ?? [];
   const memberSince = formatDate(agent.user.createdAt);
+  const agentDisplayName = fullName(agent.user);
 
   function toggleStatus() {
     if (isActive) {
       const ok = window.confirm(
-        `Désactiver le compte de ${fullName(agent!.user)} ? Il ne pourra plus se connecter.`,
+        `Désactiver le compte de ${agentDisplayName} ? Il ne pourra plus se connecter.`,
       );
       if (!ok) return;
     }
@@ -224,7 +223,7 @@ export default function AgentDetailPage() {
       {/* En-tête */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <Button variant="ghost" size="icon" asChild>
               <Link href="/crm/agents" aria-label="Retour à la liste">
                 <ArrowLeft className="h-5 w-5" />
@@ -237,7 +236,7 @@ export default function AgentDetailPage() {
 
             <div className="min-w-0">
               <h1 className="truncate text-2xl font-bold tracking-tight">
-                {fullName(agent.user)}
+                {agentDisplayName}
                 {isSelf && (
                   <span className="ml-2 text-sm font-normal text-muted-foreground">
                     (vous)
@@ -266,6 +265,13 @@ export default function AgentDetailPage() {
               </Button>
             )}
 
+            {canResetPassword && (
+              <ResetPasswordButton
+                agentId={id}
+                agentName={agentDisplayName}
+              />
+            )}
+
             {canEditOrDelete && (
               <Button
                 variant="outline"
@@ -285,17 +291,10 @@ export default function AgentDetailPage() {
               </Button>
             )}
 
-            {canResetPassword && (
-              <ResetPasswordButton
-                agentId={id}
-                agentName={fullName(agent.user)}
-              />
-            )}
-
             {canEditOrDelete && (
               <DeleteAgentButton
                 agentId={id}
-                agentName={fullName(agent.user)}
+                agentName={agentDisplayName}
                 myAgentId={user.agentId}
               />
             )}
@@ -392,20 +391,22 @@ export default function AgentDetailPage() {
               <p className="text-sm text-muted-foreground">
                 {agent.canManageCash
                   ? "Cet agent peut consulter et saisir les frais de visite et les dépenses de chaque jour."
-                  : "Accès réservé au gérant. Autorisez cet agent pour qu'il puisse les consulter et les saisir."}
+                  : "Accès réservé au gérant. Le gérant peut autoriser cet agent à les consulter et les saisir."}
               </p>
-              <Button
-                className="w-full"
-                variant={agent.canManageCash ? "outline" : "default"}
-                disabled={cashAccess.isPending}
-                onClick={() => cashAccess.mutate(!agent.canManageCash)}
-              >
-                {cashAccess.isPending
-                  ? "Mise à jour..."
-                  : agent.canManageCash
-                    ? "Retirer l'accès"
-                    : "Autoriser l'accès"}
-              </Button>
+              {canToggleCash && (
+                <Button
+                  className="w-full"
+                  variant={agent.canManageCash ? "outline" : "default"}
+                  disabled={cashAccess.isPending}
+                  onClick={() => cashAccess.mutate(!agent.canManageCash)}
+                >
+                  {cashAccess.isPending
+                    ? "Mise à jour..."
+                    : agent.canManageCash
+                      ? "Retirer l'accès"
+                      : "Autoriser l'accès"}
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
