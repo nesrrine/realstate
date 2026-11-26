@@ -1,13 +1,39 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { PropertiesFilters } from '@/components/properties/PropertiesFilters';
 import { PropertiesList } from '@/components/properties/PropertiesList';
 import { AiSearchBar } from '@/components/ai/ai-search-bar';
 
+export const metadata: Metadata = {
+  title: 'Tous nos biens | Le Portail Immobilier',
+  description:
+    'Appartements, villas, terrains, locaux commerciaux et fonds de commerce en vente et location. Filtrez par type, prix, surface et ville.',
+};
+
+/* ───────── Squelettes de chargement ───────── */
+
+function FiltersSkeleton() {
+  return <div className="h-24 animate-pulse rounded-2xl bg-slate-100" aria-hidden />;
+}
+
+function ListSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl bg-slate-100" />
+      ))}
+    </div>
+  );
+}
+
+/* ───────── Page ───────── */
+
 export default function BiensPage() {
   return (
-    <div className="py-8 sm:py-12">
+    <section className="py-16 sm:py-20">
       <div className="container mx-auto px-4 sm:px-6">
-        <div className="mb-8">
+        {/* En-tête (même style que « Biens à la une ») */}
+        <header>
           <span className="text-xs font-semibold uppercase tracking-wider text-blue-600">
             Portefeuille
           </span>
@@ -17,23 +43,23 @@ export default function BiensPage() {
           <p className="mt-2 text-slate-600">
             Découvrez notre sélection de biens immobiliers en vente et location.
           </p>
+        </header>
+
+        {/* Recherche IA + filtres : une seule carte, toujours visible */}
+        <div className="mt-8 space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
+          <AiSearchBar />
+          <Suspense fallback={<FiltersSkeleton />}>
+            <PropertiesFilters />
+          </Suspense>
         </div>
 
-        <AiSearchBar />
-
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
-          <aside className="lg:col-span-1">
-            <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-slate-100" />}>
-              <PropertiesFilters />
-            </Suspense>
-          </aside>
-          <main className="lg:col-span-3">
-            <Suspense fallback={<div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-80 animate-pulse rounded-2xl bg-slate-100" />)}</div>}>
-              <PropertiesList />
-            </Suspense>
-          </main>
+        {/* Liste pleine largeur : 1 / 2 / 3 colonnes comme l'accueil */}
+        <div className="mt-10">
+          <Suspense fallback={<ListSkeleton />}>
+            <PropertiesList />
+          </Suspense>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -26,6 +26,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { queryKeys } from "@/lib/query-keys";
 import { DeleteAgentButton } from "@/components/agents/delete-agent-dialog";
 import { AgentTypeBadge } from "@/components/agents/agent-type-badge";
+import { ResetPasswordButton } from "@/components/agents/reset-password-dialog";
 
 export default function AgentDetailPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -53,7 +54,11 @@ export default function AgentDetailPage() {
     onSuccess: ({ canManageCash }) => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       qc.invalidateQueries({ queryKey: queryKeys.cash.all });
-      toast.success(canManageCash ? "Accès aux frais et dépenses accordé" : "Accès aux frais et dépenses retiré");
+      toast.success(
+        canManageCash
+          ? "Accès aux frais et dépenses accordé"
+          : "Accès aux frais et dépenses retiré",
+      );
     },
     onError: (e) => toast.error(getErrorMessage(e)),
   });
@@ -65,6 +70,13 @@ export default function AgentDetailPage() {
   if (!agent) {
     return <div className="py-12 text-center">Agent introuvable</div>;
   }
+
+  const isSelf = agent.user.email === user?.email;
+  // Le back refuse la modification d'un compte MANAGER par un non-MANAGER
+  const canManageTarget =
+    agent.user.role !== "MANAGER" || user?.role === "MANAGER";
+  // ADMIN et MANAGER, comptes AGENT uniquement, jamais soi-même
+  const canResetPassword = agent.user.role === "AGENT" && !isSelf;
 
   return (
     <div className="space-y-6">
@@ -83,15 +95,25 @@ export default function AgentDetailPage() {
             </div>
           </div>
         </div>
+
         <div className="flex flex-wrap gap-2">
-          <Link href={`/crm/agents/${id}/edit`}>
-            <Button>
-              <Edit className="mr-2 h-4 w-4" />
-              Modifier
-            </Button>
-          </Link>
-          {/* Gérant / admin, jamais sur son propre compte */}
-          {!isAgentRole && agent.user.email !== user?.email && (
+          {canManageTarget && !isSelf && (
+            <Link href={`/crm/agents/${id}/edit`}>
+              <Button>
+                <Edit className="mr-2 h-4 w-4" />
+                Modifier
+              </Button>
+            </Link>
+          )}
+
+          {canResetPassword && (
+            <ResetPasswordButton
+              agentId={id}
+              agentName={fullName(agent.user)}
+            />
+          )}
+
+          {canManageTarget && !isSelf && (
             <DeleteAgentButton
               agentId={id}
               agentName={fullName(agent.user)}

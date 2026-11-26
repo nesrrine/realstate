@@ -1,4 +1,3 @@
-
 import {
   BadRequestException,
   ConflictException,
@@ -128,8 +127,8 @@ export class AgentsService {
       }
     }
 
-    // ADMIN et MANAGER peuvent créer un compte AGENT.
-    // Seul le MANAGER peut créer un compte ADMIN.
+    // ADMIN : ne peut créer que des comptes AGENT.
+    // MANAGER : peut créer AGENT ou ADMIN, jamais un autre MANAGER.
     let roleToSet: Role = Role.AGENT;
 
     if (actor.role === Role.MANAGER) {
@@ -141,9 +140,9 @@ export class AgentsService {
         );
       }
     } else if (actor.role === Role.ADMIN) {
-      if (dto.role === Role.ADMIN) {
+      if (dto.role === Role.ADMIN || dto.role === Role.MANAGER) {
         throw new ForbiddenException(
-          "Un administrateur ne peut pas créer un autre administrateur",
+          "Un administrateur ne peut créer que des comptes agent",
         );
       }
 
@@ -256,27 +255,15 @@ export class AgentsService {
 
     switch (filter.sortBy) {
       case "createdAt":
-        orderBy = {
-          user: {
-            createdAt: sortOrder,
-          },
-        };
+        orderBy = { user: { createdAt: sortOrder } };
         break;
 
       case "firstName":
-        orderBy = {
-          user: {
-            firstName: sortOrder,
-          },
-        };
+        orderBy = { user: { firstName: sortOrder } };
         break;
 
       default:
-        orderBy = {
-          user: {
-            lastName: sortOrder,
-          },
-        };
+        orderBy = { user: { lastName: sortOrder } };
     }
 
     const [total, data] = await this.prisma.$transaction([
@@ -332,10 +319,7 @@ export class AgentsService {
         ? undefined
         : emptyToNull(dto.licenseNumber);
 
-    if (
-      licenseNumber &&
-      licenseNumber !== agent.licenseNumber
-    ) {
+    if (licenseNumber && licenseNumber !== agent.licenseNumber) {
       const lic = await this.prisma.agent.findUnique({
         where: { licenseNumber },
       });
@@ -376,11 +360,7 @@ export class AgentsService {
   }
 
   // Activer / désactiver
-  async setStatus(
-    id: string,
-    isActive: boolean,
-    actor: Actor,
-  ) {
+  async setStatus(id: string, isActive: boolean, actor: Actor) {
     const agent = await this.findOne(id);
 
     this.assertCanManage(agent.user.role, actor);
@@ -392,12 +372,8 @@ export class AgentsService {
     }
 
     return this.prisma.user.update({
-      where: {
-        id: agent.user.id,
-      },
-      data: {
-        isActive,
-      },
+      where: { id: agent.user.id },
+      data: { isActive },
       select: {
         id: true,
         email: true,
@@ -406,17 +382,15 @@ export class AgentsService {
     });
   }
 
-  // Réinitialiser le mot de passe : MANAGER uniquement
-// Réinitialiser le mot de passe : MANAGER uniquement, comptes AGENT uniquement
-  // Réinitialiser le mot de passe : MANAGER uniquement, comptes AGENT uniquement
+  // Réinitialiser le mot de passe : ADMIN et MANAGER, comptes AGENT uniquement
   async resetPassword(
     id: string,
     newPassword: string,
     actor: Actor,
   ) {
-    if (actor.role !== Role.MANAGER) {
+    if (actor.role !== Role.MANAGER && actor.role !== Role.ADMIN) {
       throw new ForbiddenException(
-        "Seul le manager peut réinitialiser un mot de passe",
+        "Seul un administrateur ou un gérant peut réinitialiser un mot de passe",
       );
     }
 
@@ -450,7 +424,7 @@ export class AgentsService {
 
   // Portefeuille d'un agent
   async portfolio(id: string) {
-    await this.findOne(id);
+    const agent = await this.findOne(id);
 
     const [
       clients,
@@ -462,10 +436,7 @@ export class AgentsService {
     ] = await this.prisma.$transaction([
       this.prisma.client.count({
         where: {
-          OR: [
-            { agentId: id },
-            { fieldAgentId: id },
-          ],
+          OR: [{ agentId: id }, { fieldAgentId: id }],
         },
       }),
 
@@ -479,28 +450,18 @@ export class AgentsService {
 
       this.prisma.visit.count({
         where: {
-          OR: [
-            { fieldAgentId: id },
-            { officeAgentId: id },
-          ],
+          OR: [{ fieldAgentId: id }, { officeAgentId: id }],
         },
       }),
 
       this.prisma.transaction.count({
         where: {
-          OR: [
-            { fieldAgentId: id },
-            { officeAgentId: id },
-          ],
+          OR: [{ fieldAgentId: id }, { officeAgentId: id }],
         },
       }),
 
       this.prisma.cashEntry.count({
-        where: {
-          createdBy: {
-            agent: { id },
-          },
-        },
+        where: { createdById: agent.user.id },
       }),
     ]);
 
@@ -578,6 +539,12 @@ export class AgentsService {
         data: { agentId: to },
       });
 
+      // Clients dont l'agent terrain est l'agent supprimé
+      await tx.client.updateMany({
+        where: { fieldAgentId: id },
+        data: { fieldAgentId: to },
+      });
+
       const properties = await tx.property.updateMany({
         where: { agentId: id },
         data: { agentId: to },
@@ -609,26 +576,12 @@ export class AgentsService {
       });
 
       const cashEntries = await tx.cashEntry.updateMany({
-        where: {
-          createdById: agent.user.id,
-        },
-        data: {
-          createdById: heir.userId,
-        },
+        where: { createdById: agent.user.id },
+        data: { createdById: heir.userId },
       });
 
-      await tx.client.updateMany({
-        where: { fieldAgentId: id },
-        data: { fieldAgentId: to },
-      });
-
-      await tx.agent.delete({
-        where: { id },
-      });
-
-      await tx.user.delete({
-        where: { id: agent.user.id },
-      });
+      await tx.agent.delete({ where: { id } });
+      await tx.user.delete({ where: { id: agent.user.id } });
 
       return {
         clients: clients.count,

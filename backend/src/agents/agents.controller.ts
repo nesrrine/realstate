@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -120,17 +119,17 @@ export class AgentsController {
     );
   }
 
-  // Réinitialisation du mot de passe : MANAGER uniquement
+  // Réinitialisation du mot de passe : ADMIN et MANAGER
   @Patch(":id/password")
-  @Roles(Role.MANAGER)
+  @Roles(Role.ADMIN, Role.MANAGER)
   @ApiParam({ name: "id" })
   @ApiOperation({
-    summary: "Reset agent password (MANAGER only)",
+    summary: "Reset agent password (ADMIN/MANAGER)",
   })
   @ApiResponse({ status: 200, description: "Password reset successfully" })
   @ApiResponse({
     status: 403,
-    description: "Only MANAGER can reset passwords",
+    description: "Only ADMIN or MANAGER can reset agent passwords",
   })
   @HttpCode(HttpStatus.OK)
   resetPassword(
@@ -143,6 +142,19 @@ export class AgentsController {
       dto.password,
       toActor(user),
     );
+  }
+
+  // Aperçu du portefeuille avant suppression
+  // (déclaré avant le DELETE ":id" par lisibilité ; pas de conflit de route)
+  @Get(":id/portfolio")
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiParam({ name: "id" })
+  @ApiOperation({
+    summary: "Preview agent portfolio before deletion",
+  })
+  @ApiResponse({ status: 200, description: "Agent portfolio returned" })
+  portfolio(@Param("id") id: string) {
+    return this.agentsService.portfolio(id);
   }
 
   // Suppression d'un agent avec transfert du portefeuille
@@ -172,17 +184,5 @@ export class AgentsController {
       toActor(user),
       transferTo || undefined,
     );
-  }
-
-  // Aperçu du portefeuille avant suppression
-  @Get(":id/portfolio")
-  @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiParam({ name: "id" })
-  @ApiOperation({
-    summary: "Preview agent portfolio before deletion",
-  })
-  @ApiResponse({ status: 200, description: "Agent portfolio returned" })
-  portfolio(@Param("id") id: string) {
-    return this.agentsService.portfolio(id);
   }
 }

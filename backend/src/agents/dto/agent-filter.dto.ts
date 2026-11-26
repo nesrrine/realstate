@@ -1,5 +1,13 @@
 import { Transform, Type } from "class-transformer";
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from "class-validator";
 
 export class AgentFilterDto {
   @IsOptional()
@@ -15,9 +23,9 @@ export class AgentFilterDto {
         ? false
         : undefined,
   )
+  @IsBoolean()
   isActive?: boolean;
 
-  // Agent terrain (visites sur place) ou bureau (accueil, planification)
   @IsOptional()
   @IsIn(["FIELD", "OFFICE"])
   agentType?: "FIELD" | "OFFICE";
