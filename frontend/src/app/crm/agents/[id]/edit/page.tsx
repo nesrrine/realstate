@@ -20,7 +20,7 @@ function initials(firstName?: string, lastName?: string) {
 
 function PageSkeleton() {
   return (
-    <div className="mx-auto max-w-4xl animate-pulse space-y-6">
+    <div className="w-full animate-pulse space-y-6">
       <div className="h-16 rounded-xl bg-muted" />
       <div className="h-96 rounded-xl bg-muted" />
     </div>
@@ -108,7 +108,7 @@ export default function AgentEditPage() {
   const canResetPassword = agent.user.role === "AGENT";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="w-full space-y-6">
       {/* En-tête */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
