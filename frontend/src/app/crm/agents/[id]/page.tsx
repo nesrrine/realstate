@@ -14,6 +14,8 @@ import {
   Edit,
   Mail,
   Phone,
+  UserCheck,
+  UserX,
   Users,
   Wallet,
 } from "lucide-react";
@@ -51,7 +53,9 @@ function initials(firstName?: string, lastName?: string) {
 
 function formatDate(value?: string) {
   if (!value) return null;
-  return new Date(value).toLocaleDateString("fr-FR", {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -87,7 +91,7 @@ function StatCard({
 
 function PageSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="animate-pulse space-y-6">
       <div className="h-24 rounded-xl bg-muted" />
       <div className="grid gap-4 md:grid-cols-3">
         {[0, 1, 2].map((i) => (
@@ -142,13 +146,25 @@ export default function AgentDetailPage() {
     onError: (e) => toast.error(getErrorMessage(e)),
   });
 
-  if (authLoading || isAgentRole || isLoading) {
+  // Activation / désactivation : PATCH /agents/:id/status
+  const status = useMutation({
+    mutationFn: (isActive: boolean) => agentsService.setStatus(id, isActive),
+    onSuccess: ({ isActive }) => {
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      toast.success(isActive ? "Compte activé" : "Compte désactivé");
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  });
+
+  // Tant que l'utilisateur n'est pas connu, on affiche le squelette
+  // (sinon "Agent introuvable" clignote : la requête est désactivée)
+  if (authLoading || !user || isAgentRole || isLoading) {
     return <PageSkeleton />;
   }
 
   if (isError) {
     return (
-      <div className="py-16 text-center space-y-4">
+      <div className="space-y-4 py-16 text-center">
         <p className="text-muted-foreground">
           Impossible de charger la fiche de l&apos;agent.
         </p>
@@ -166,7 +182,7 @@ export default function AgentDetailPage() {
 
   if (!agent) {
     return (
-      <div className="py-16 text-center space-y-4">
+      <div className="space-y-4 py-16 text-center">
         <p className="text-muted-foreground">Agent introuvable.</p>
         <Button variant="outline" asChild>
           <Link href="/crm/agents">Retour à la liste</Link>
@@ -176,20 +192,32 @@ export default function AgentDetailPage() {
   }
 
   // Règles alignées sur le back
-  const isSelf = agent.user.email === user?.email;
+  const isSelf = agent.user.email === user.email;
   const targetRole = agent.user.role ?? "AGENT";
   // Un compte MANAGER ne peut être modifié que par un MANAGER
-  const canManageTarget = targetRole !== "MANAGER" || user?.role === "MANAGER";
+  const canManageTarget = targetRole !== "MANAGER" || user.role === "MANAGER";
   const canEditOrDelete = canManageTarget && !isSelf;
   // ADMIN et MANAGER, comptes AGENT uniquement, jamais soi-même
   const canResetPassword = targetRole === "AGENT" && !isSelf;
 
+  const isActive = !!agent.user.isActive;
   const isOffice = agent.agentType === "OFFICE";
   const visitsCount = isOffice
     ? (agent._count?.officeAgentVisits ?? 0)
     : (agent._count?.fieldAgentVisits ?? 0);
   const clientsCount = agent._count?.clients ?? 0;
+  const clientsList = agent.clients ?? [];
   const memberSince = formatDate(agent.user.createdAt);
+
+  function toggleStatus() {
+    if (isActive) {
+      const ok = window.confirm(
+        `Désactiver le compte de ${fullName(agent!.user)} ? Il ne pourra plus se connecter.`,
+      );
+      if (!ok) return;
+    }
+    status.mutate(!isActive);
+  }
 
   return (
     <div className="space-y-6">
@@ -221,8 +249,8 @@ export default function AgentDetailPage() {
                 <Badge variant="outline">
                   {ROLE_LABELS[targetRole] ?? targetRole}
                 </Badge>
-                <Badge variant={agent.user.isActive ? "default" : "secondary"}>
-                  {agent.user.isActive ? "Actif" : "Inactif"}
+                <Badge variant={isActive ? "default" : "secondary"}>
+                  {isActive ? "Actif" : "Inactif"}
                 </Badge>
               </div>
             </div>
@@ -238,6 +266,25 @@ export default function AgentDetailPage() {
               </Button>
             )}
 
+            {canEditOrDelete && (
+              <Button
+                variant="outline"
+                disabled={status.isPending}
+                onClick={toggleStatus}
+              >
+                {isActive ? (
+                  <UserX className="mr-2 h-4 w-4" />
+                ) : (
+                  <UserCheck className="mr-2 h-4 w-4" />
+                )}
+                {status.isPending
+                  ? "Mise à jour..."
+                  : isActive
+                    ? "Désactiver"
+                    : "Activer"}
+              </Button>
+            )}
+
             {canResetPassword && (
               <ResetPasswordButton
                 agentId={id}
@@ -249,7 +296,7 @@ export default function AgentDetailPage() {
               <DeleteAgentButton
                 agentId={id}
                 agentName={fullName(agent.user)}
-                myAgentId={user?.agentId}
+                myAgentId={user.agentId}
               />
             )}
           </div>
@@ -365,7 +412,7 @@ export default function AgentDetailPage() {
 
         {/* Colonne droite */}
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader>
             <CardTitle className="text-base">
               Clients assignés
               <span className="ml-2 text-sm font-normal text-muted-foreground">
@@ -374,38 +421,46 @@ export default function AgentDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {agent.clients && agent.clients.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nom</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {agent.clients.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">
-                        {c.firstName} {c.lastName}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">{c.phone}</div>
-                        {c.email && (
-                          <div className="text-xs text-muted-foreground">
-                            {c.email}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/crm/clients/${c.id}`}>Voir</Link>
-                        </Button>
-                      </TableCell>
+            {clientsList.length > 0 ? (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nom</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {clientsList.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">
+                          {c.firstName} {c.lastName}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{c.phone}</div>
+                          {c.email && (
+                            <div className="text-xs text-muted-foreground">
+                              {c.email}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/crm/clients/${c.id}`}>Voir</Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {clientsCount > clientsList.length && (
+                  <p className="mt-3 text-center text-xs text-muted-foreground">
+                    {clientsList.length} derniers clients affichés sur{" "}
+                    {clientsCount}.
+                  </p>
+                )}
+              </>
             ) : (
               <div className="py-10 text-center">
                 <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />

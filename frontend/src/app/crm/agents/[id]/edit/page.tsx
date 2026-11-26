@@ -5,12 +5,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "@/providers/AuthProvider";
 import { AgentForm } from "@/components/agents/agent-form";
+import { ResetPasswordButton } from "@/components/agents/reset-password-dialog";
 import { agentsService } from "@/services/agents.service";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fullName } from "@/lib/property-constants";
 
 function initials(firstName?: string, lastName?: string) {
@@ -78,7 +80,7 @@ export default function AgentEditPage() {
 
   if (isError) {
     return (
-      <div className="py-16 text-center space-y-4">
+      <div className="space-y-4 py-16 text-center">
         <p className="text-muted-foreground">
           Erreur lors du chargement de l&apos;agent.
         </p>
@@ -96,7 +98,7 @@ export default function AgentEditPage() {
 
   if (!agent) {
     return (
-      <div className="py-16 text-center space-y-4">
+      <div className="space-y-4 py-16 text-center">
         <p className="text-muted-foreground">Agent introuvable.</p>
         <Button variant="outline" asChild>
           <Link href="/crm/agents">Retour à la liste</Link>
@@ -104,6 +106,9 @@ export default function AgentEditPage() {
       </div>
     );
   }
+
+  // ADMIN et MANAGER, comptes AGENT uniquement (déjà exclu : son propre compte)
+  const canResetPassword = agent.user.role === "AGENT";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -129,6 +134,27 @@ export default function AgentEditPage() {
       </div>
 
       <AgentForm mode="edit" agent={agent} />
+
+      {canResetPassword && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              Sécurité
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-4">
+            <p className="max-w-md text-sm text-muted-foreground">
+              Définissez un nouveau mot de passe si l&apos;agent a oublié le
+              sien. Communiquez-le-lui par un canal sûr.
+            </p>
+            <ResetPasswordButton
+              agentId={id}
+              agentName={fullName(agent.user)}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
