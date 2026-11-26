@@ -360,15 +360,32 @@ export class AgentsService {
   }
 
   // Activer / désactiver
+   // Activer / désactiver
   async setStatus(id: string, isActive: boolean, actor: Actor) {
     const agent = await this.findOne(id);
-
-    this.assertCanManage(agent.user.role, actor);
 
     if (agent.user.id === actor.userId) {
       throw new BadRequestException(
         "Vous ne pouvez pas modifier le statut de votre propre compte",
       );
+    }
+
+    // ADMIN : uniquement les comptes AGENT
+    if (actor.role === Role.ADMIN && agent.user.role !== Role.AGENT) {
+      throw new ForbiddenException(
+        "Un administrateur ne peut modifier que le statut des agents",
+      );
+    }
+
+    this.assertCanManage(agent.user.role, actor);
+
+    // Déjà dans l'état demandé : rien à écrire
+    if (agent.user.isActive === isActive) {
+      return {
+        id: agent.user.id,
+        email: agent.user.email,
+        isActive,
+      };
     }
 
     return this.prisma.user.update({
@@ -381,7 +398,6 @@ export class AgentsService {
       },
     });
   }
-
   // Réinitialiser le mot de passe : ADMIN et MANAGER, comptes AGENT uniquement
   async resetPassword(
     id: string,
